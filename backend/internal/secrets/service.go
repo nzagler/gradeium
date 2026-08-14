@@ -41,16 +41,26 @@ func NewService(policy Policy, store Store, cipher *Cipher) *Service {
 
 // Set validates, encrypts with a fresh nonce, and atomically replaces a secret.
 func (service *Service) Set(ctx context.Context, key, value string) error {
-	if err := service.policy.ValidateSecret(key, value); err != nil {
+	record, err := service.Seal(key, value)
+	if err != nil {
 		return err
+	}
+	return service.store.Upsert(ctx, record)
+}
+
+// Seal validates and encrypts a value without persisting it. This allows a
+// caller to include the resulting envelope in a larger database transaction.
+func (service *Service) Seal(key, value string) (Record, error) {
+	if err := service.policy.ValidateSecret(key, value); err != nil {
+		return Record{}, err
 	}
 	plaintext := []byte(value)
 	defer clearBytes(plaintext)
 	envelope, err := service.cipher.Encrypt(key, plaintext)
 	if err != nil {
-		return err
+		return Record{}, err
 	}
-	return service.store.Upsert(ctx, Record{Key: key, Envelope: envelope})
+	return Record{Key: key, Envelope: envelope}, nil
 }
 
 // Configured reports state without decrypting or returning a secret.
@@ -77,7 +87,15 @@ func (service *Service) Read(ctx context.Context, key string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return service.cipher.Decrypt(key, record.Envelope)
+	return service.Open(record)
+}
+
+// Open decrypts an allowed record obtained by trusted server-side code.
+func (service *Service) Open(record Record) ([]byte, error) {
+	if !service.policy.AllowsSecret(record.Key) {
+		return nil, errors.New("secret key is not allowed")
+	}
+	return service.cipher.Decrypt(record.Key, record.Envelope)
 }
 
 // Delete removes an allowed secret setting.

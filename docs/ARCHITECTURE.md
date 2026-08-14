@@ -195,16 +195,21 @@ Do not hard-code Pocket ID-specific login behavior into core auth.
 ### Bootstrap problem
 Gradeium needs a secure way to reach Admin Settings before external OIDC is configured.
 
-The implementation must provide a protected first-run bootstrap path. A recommended model is:
+The implemented bootstrap is deliberately narrow:
 
 1. On a fresh database, Gradeium enters `setup_required` state.
-2. The UI routes unauthenticated users only to a one-time setup wizard.
-3. The setup wizard establishes the initial local administrator/bootstrap identity or another secure one-time admin mechanism.
-4. The administrator configures OIDC/Pocket ID in the UI.
-5. Gradeium tests the OIDC configuration before activation.
-6. Once external OIDC is working, the bootstrap mechanism is disabled or tightly restricted.
+2. After the one-time installation transition, only the Authentication configuration/test/activation surface is available without a session.
+3. The operator configures generic OIDC from a trusted network and validates discovery before activation.
+4. Activation is a durable transition that permanently closes the unauthenticated configuration path.
+5. The first successfully verified issuer + subject identity is atomically created/bound as the initial administrator.
+6. Every later Admin Settings request requires an authenticated Gradeium administrator.
 
-The exact mechanism may be refined during implementation, but there must never be a permanently open unauthenticated Admin Settings route.
+There is no local-password account, reset endpoint, or hidden authentication bypass.
+
+### Sessions and CSRF
+Gradeium sessions are persisted in PostgreSQL and remain independent of provider availability after login. The browser receives an opaque random cookie, while PostgreSQL stores only its hash, user relationship, expiry, and revocation state. Session cookies are HTTP-only, finite-lived, SameSite-protected, and Secure for HTTPS public URLs.
+
+Authenticated unsafe API methods require a session-bound CSRF token and validate browser origin signals. OIDC callbacks use their own one-time state, nonce, and PKCE protections and are not routed through ordinary API CSRF middleware.
 
 ## Admin-managed integration configuration
 Provider/integration configuration belongs in PostgreSQL through the Admin Settings UI.

@@ -38,13 +38,17 @@ func TestRegistryValidatesAndCanonicalizesSettings(t *testing.T) {
 
 func TestRegistrySeparatesSecretKeys(t *testing.T) {
 	registry := NewRegistry()
-	if !registry.AllowsSecret(FutureAuthenticationSecretKey) {
-		t.Fatal("registered future authentication secret was not allowed")
+	if !registry.AllowsSecret(AuthenticationClientSecretKey) || !registry.AllowsSecret(AuthenticationActiveClientSecretKey) {
+		t.Fatal("registered authentication secrets were not allowed")
 	}
 	if registry.AllowsSecret(InstanceNameKey) {
 		t.Fatal("public setting was accepted as a secret")
 	}
-	if err := registry.ValidateSecret(FutureAuthenticationSecretKey, ""); err == nil {
+	if err := registry.ValidateSecret(AuthenticationClientSecretKey, ""); err == nil {
 		t.Fatal("empty secret was accepted")
+	}
+	definition, ok := registry.Definition(AuthenticationActiveClientSecretKey)
+	if !ok || !definition.Internal {
+		t.Fatal("active authentication secret was not marked internal")
 	}
 }

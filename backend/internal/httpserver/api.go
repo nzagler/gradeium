@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	authpackage "github.com/nzagler/gradeium/backend/internal/auth"
 	"github.com/nzagler/gradeium/backend/internal/settings"
 )
 
@@ -38,14 +39,19 @@ type SecretService interface {
 	Delete(context.Context, string) (bool, error)
 }
 
-// AdminAuthorization is the explicit insertion point for Phase 3 OIDC/admin checks.
-type AdminAuthorization func(http.Handler) http.Handler
-
-// Phase2AdminAuthorization is intentionally transparent because Phase 2 has no
-// identity or login mechanism. It must be replaced, not mistaken for auth, when
-// OIDC is implemented.
-func Phase2AdminAuthorization(next http.Handler) http.Handler {
-	return next
+// AuthenticationService is the OIDC/session boundary consumed by HTTP.
+type AuthenticationService interface {
+	State(context.Context) (authpackage.State, error)
+	Configuration(context.Context) (authpackage.ConfigurationView, error)
+	SaveConfiguration(context.Context, authpackage.ConfigurationInput) (authpackage.ConfigurationView, error)
+	TestConfiguration(context.Context) (authpackage.ValidationResult, error)
+	Activate(context.Context) (authpackage.ConfigurationView, error)
+	StartLogin(context.Context, string) (string, error)
+	CompleteCallback(context.Context, string, string, string) (authpackage.LoginResult, error)
+	Authenticate(context.Context, string) (authpackage.Session, error)
+	CSRFToken(string) string
+	ValidateCSRF(string, string) bool
+	Logout(context.Context, string) (bool, error)
 }
 
 type apiHandlers struct {
@@ -54,20 +60,19 @@ type apiHandlers struct {
 	settings           SettingsService
 	secrets            SecretService
 	registry           *settings.Registry
+	authentication     AuthenticationService
 	masterKeyAvailable bool
 }
 
-// NewAPI returns Gradeium's Phase 2 JSON API. Admin routes are grouped behind a
-// required authorization middleware even though the current implementation is
-// deliberately transparent until real OIDC exists.
+// NewAPI returns Gradeium's setup, authentication, and admin JSON API.
 func NewAPI(
 	logger *slog.Logger,
 	setupService SetupService,
 	settingsService SettingsService,
 	secretService SecretService,
 	registry *settings.Registry,
+	authentication AuthenticationService,
 	masterKeyAvailable bool,
-	adminAuthorization AdminAuthorization,
 ) http.Handler {
 	handlers := &apiHandlers{
 		logger:             logger,
@@ -75,15 +80,27 @@ func NewAPI(
 		settings:           settingsService,
 		secrets:            secretService,
 		registry:           registry,
+		authentication:     authentication,
 		masterKeyAvailable: masterKeyAvailable,
 	}
 
 	router := chi.NewRouter()
+	router.Use(noStore)
 	router.Get("/setup/status", handlers.setupStatus)
 	router.Post("/setup/complete", handlers.completeSetup)
+	router.Get("/auth/status", handlers.authStatus)
+	router.Get("/auth/configuration", handlers.authConfiguration)
+	router.Put("/auth/configuration", handlers.saveAuthConfiguration)
+	router.Post("/auth/configuration/test", handlers.testAuthConfiguration)
+	router.Post("/auth/activate", handlers.activateAuthentication)
+	router.Get("/auth/login", handlers.startLogin)
+	router.Get("/auth/callback", handlers.authCallback)
+	router.Get("/auth/session", handlers.authSession)
+	router.Post("/auth/logout", handlers.logout)
 	router.Route("/admin", func(admin chi.Router) {
 		admin.Use(handlers.requireSetupComplete)
-		admin.Use(adminAuthorization)
+		admin.Use(handlers.requireAdmin)
+		admin.Use(handlers.requireCSRF)
 		admin.Get("/settings", handlers.listSettings)
 		admin.Put("/settings/{key}", handlers.updateSetting)
 		admin.Put("/secrets/{key}", handlers.setSecret)
@@ -92,6 +109,13 @@ func NewAPI(
 	})
 	router.NotFound(apiNotFoundHandler)
 	return router
+}
+
+func noStore(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (handlers *apiHandlers) setupStatus(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +198,7 @@ func (handlers *apiHandlers) listSettings(w http.ResponseWriter, r *http.Request
 		})
 	}
 	for _, definition := range handlers.registry.Definitions() {
-		if definition.Sensitivity != settings.SensitivitySecret {
+		if definition.Sensitivity != settings.SensitivitySecret || definition.Internal {
 			continue
 		}
 		configured, err := handlers.secrets.Configured(ctx, definition.Key)
@@ -199,7 +223,7 @@ func (handlers *apiHandlers) listSettings(w http.ResponseWriter, r *http.Request
 func (handlers *apiHandlers) updateSetting(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 	definition, allowed := handlers.registry.Definition(key)
-	if !allowed || definition.Sensitivity != settings.SensitivityPublic {
+	if !allowed || definition.Sensitivity != settings.SensitivityPublic || definition.Section == "authentication" || definition.Internal {
 		writeAPIError(w, http.StatusNotFound, "setting_not_found", "That setting is not available.")
 		return
 	}
@@ -230,7 +254,8 @@ func (handlers *apiHandlers) updateSetting(w http.ResponseWriter, r *http.Reques
 
 func (handlers *apiHandlers) setSecret(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
-	if !handlers.registry.AllowsSecret(key) {
+	definition, allowed := handlers.registry.Definition(key)
+	if !allowed || definition.Section == "authentication" || definition.Internal || !handlers.registry.AllowsSecret(key) {
 		writeAPIError(w, http.StatusNotFound, "setting_not_found", "That secret setting is not available.")
 		return
 	}
@@ -256,7 +281,8 @@ func (handlers *apiHandlers) setSecret(w http.ResponseWriter, r *http.Request) {
 
 func (handlers *apiHandlers) deleteSecret(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
-	if !handlers.registry.AllowsSecret(key) {
+	definition, allowed := handlers.registry.Definition(key)
+	if !allowed || definition.Section == "authentication" || definition.Internal || !handlers.registry.AllowsSecret(key) {
 		writeAPIError(w, http.StatusNotFound, "setting_not_found", "That secret setting is not available.")
 		return
 	}
