@@ -1,0 +1,36 @@
+Implement the Phase 5 GitHub issue in nzagler/gradeium.
+
+Before changing anything:
+- read AGENTS.md
+- read every file under docs/
+- follow docs/CODEX_PHASE_5.md exactly
+
+Work on one dedicated branch, preferably codex/phase-5-dashboard-backups.
+
+Implement the entire Phase 5 milestone in one branch and one draft PR:
+- Dashboard analytics based only on current persisted Gradeium state
+- portable versioned JSON.gz backups in /backups
+- safe transactional restore with automatic pre-restore backup
+- automatic backup scheduling and retention
+- backup list/download/delete/create UI and APIs
+- ratings CSV export
+- General/Backup/System settings completion and user Library defaults
+- responsive/accessibility/error-state polish required by CODEX_PHASE_5.md
+
+Preserve every Phase 1–4 reliability/security guarantee. Do not weaken OIDC, sessions, CSRF, encrypted secrets, provider outage isolation, PostgreSQL readiness behavior, container hardening, or master-key recovery behavior.
+
+Do not implement Jellyfin, custom lists, favorites, imports, recommendations, user-management UI, local-password auth, public APIs/API keys, media-history/diary UI, or other post-1.0 functionality. Jellyfin is explicitly post-1.0.
+
+Portable backups must never contain plaintext or encrypted provider/OIDC secrets, session material, CSRF tokens, or the master key. Restore must not create an authentication bypass or silently replace the current authentication configuration.
+
+Treat this as one dense milestone, but work through the internal checkpoints in CODEX_PHASE_5.md without stopping for intermediate approval. Fix defects found during later verification rather than merely reporting them.
+
+Run all backend, race, PostgreSQL 18 integration, sqlc, frontend, Docker, Compose, scheduler, backup/restore, security, responsive, and browser verification required by CODEX_PHASE_5.md.
+
+When finished:
+1. review the entire diff against AGENTS.md and all docs
+2. report exactly which checks actually ran and their results
+3. commit the work clearly
+4. push the branch
+5. open one draft PR against main that closes the Phase 5 issue
+6. do not merge the PR
