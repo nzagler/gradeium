@@ -29,12 +29,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { AuthenticationPanel } from "@/features/auth/authentication-panel"
+import { IntegrationsPanel } from "@/features/settings/integrations-panel"
+import { LibrarySettings } from "@/features/settings/library-settings"
 
 const instanceNameKey = "general.instance_name"
 
 type SectionSlug =
   | "general"
   | "authentication"
+  | "library"
   | "integrations"
   | "backups"
   | "system"
@@ -47,6 +50,7 @@ type SettingsSection = {
 
 const sections: SettingsSection[] = [
   { slug: "general", label: "General", icon: SlidersHorizontal },
+  { slug: "library", label: "Library", icon: SlidersHorizontal },
   { slug: "authentication", label: "Authentication", icon: KeyRound },
   { slug: "integrations", label: "Integrations", icon: Blocks },
   { slug: "backups", label: "Backups", icon: Archive },
@@ -193,9 +197,13 @@ function SettingsContent({
   if (section === "authentication") {
     return <AuthenticationPanel bootstrap={false} />
   }
-  const futureCopy: Record<Exclude<SectionSlug, "general" | "system" | "authentication">, string> = {
-    integrations:
-      "Integration configuration will appear only when a provider is implemented in a dedicated later phase.",
+  if (section === "library") {
+    return <LibrarySettings />
+  }
+  if (section === "integrations") {
+    return <IntegrationsPanel />
+  }
+  const futureCopy: Record<Exclude<SectionSlug, "general" | "system" | "authentication" | "library" | "integrations">, string> = {
     backups:
       "Backup scheduling and execution are not part of this foundation. The persistent mount remains prepared for that later work.",
   }

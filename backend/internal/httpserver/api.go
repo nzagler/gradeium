@@ -12,7 +12,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	authpackage "github.com/nzagler/gradeium/backend/internal/auth"
+	"github.com/nzagler/gradeium/backend/internal/games"
+	"github.com/nzagler/gradeium/backend/internal/integrations"
+	"github.com/nzagler/gradeium/backend/internal/media"
+	"github.com/nzagler/gradeium/backend/internal/movies"
 	"github.com/nzagler/gradeium/backend/internal/settings"
+	"github.com/nzagler/gradeium/backend/internal/tv"
 )
 
 const (
@@ -61,6 +66,11 @@ type apiHandlers struct {
 	secrets            SecretService
 	registry           *settings.Registry
 	authentication     AuthenticationService
+	integrations       *integrations.Service
+	games              *games.Service
+	movies             *movies.Service
+	tv                 *tv.Service
+	preferences        *media.PreferencesService
 	masterKeyAvailable bool
 }
 
@@ -74,6 +84,25 @@ func NewAPI(
 	authentication AuthenticationService,
 	masterKeyAvailable bool,
 ) http.Handler {
+	return NewAPIWithMedia(logger, setupService, settingsService, secretService, registry, authentication, masterKeyAvailable, nil, nil, nil, nil, nil)
+}
+
+// NewAPIWithMedia adds the Phase 4 integration and domain routes while NewAPI
+// remains available to focused foundation tests.
+func NewAPIWithMedia(
+	logger *slog.Logger,
+	setupService SetupService,
+	settingsService SettingsService,
+	secretService SecretService,
+	registry *settings.Registry,
+	authentication AuthenticationService,
+	masterKeyAvailable bool,
+	integrationService *integrations.Service,
+	gameService *games.Service,
+	movieService *movies.Service,
+	tvService *tv.Service,
+	preferenceService *media.PreferencesService,
+) http.Handler {
 	handlers := &apiHandlers{
 		logger:             logger,
 		setup:              setupService,
@@ -81,6 +110,11 @@ func NewAPI(
 		secrets:            secretService,
 		registry:           registry,
 		authentication:     authentication,
+		integrations:       integrationService,
+		games:              gameService,
+		movies:             movieService,
+		tv:                 tvService,
+		preferences:        preferenceService,
 		masterKeyAvailable: masterKeyAvailable,
 	}
 
@@ -106,7 +140,15 @@ func NewAPI(
 		admin.Put("/secrets/{key}", handlers.setSecret)
 		admin.Delete("/secrets/{key}", handlers.deleteSecret)
 		admin.Get("/system/status", handlers.systemStatus)
+		if handlers.integrations != nil {
+			admin.Get("/integrations", handlers.listIntegrations)
+			admin.Put("/integrations/{provider}", handlers.configureIntegration)
+			admin.Post("/integrations/{provider}/test", handlers.testIntegration)
+		}
 	})
+	if handlers.games != nil && handlers.movies != nil && handlers.tv != nil {
+		handlers.mountMediaRoutes(router)
+	}
 	router.NotFound(apiNotFoundHandler)
 	return router
 }

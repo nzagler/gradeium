@@ -1,8 +1,8 @@
 # Gradeium
 
-Gradeium is a long-lived, self-hosted media tracker for Games, Movies, and TV Shows. The repository currently contains the Phase 3 runtime, secure settings, and generic OpenID Connect authentication foundation: a Go API and static React frontend, PostgreSQL migrations, encrypted application secrets, one-time OIDC bootstrap, server-side sessions, CSRF protection, and a production-shaped Docker Compose stack.
+Gradeium is a long-lived, self-hosted media tracker for Games, Movies, and TV Shows. The repository contains the complete Phase 4 core media product on top of its secure Go, React, PostgreSQL, OpenID Connect, and Docker foundation.
 
-Media domains, ratings/statuses, metadata providers, Jellyfin, user-management UI, and backup execution are intentionally not implemented yet.
+Games use IGDB, Movies use TMDB, and TV Shows use TVDB with a strictly verified TVDB-to-TMDB community-rating bridge. Each domain has provider search/Add, separate Library and Backlog views, personal statuses and ratings, full detail pages, provider artwork selection, and metadata refresh. TV also includes season/episode progress with Specials excluded from regular progress. Dashboard analytics, backup execution, Jellyfin, imports, custom lists, and user-management UI remain intentionally out of scope.
 
 ## Prerequisites
 
@@ -30,6 +30,7 @@ A fresh installation follows this sequence:
 3. Save and test discovery before enabling authentication.
 4. Enable authentication, which permanently closes the unauthenticated configuration bootstrap.
 5. Sign in. The first successfully verified issuer/subject identity becomes the initial administrator.
+6. Open Admin Settings → Integrations and configure/test IGDB, TMDB, and TVDB as needed.
 
 Perform the unauthenticated OIDC bootstrap only from a trusted network. There is no local-password account or hidden authentication reset endpoint.
 
@@ -81,6 +82,29 @@ Enter the provider's exact issuer value. Discovery must report that same issuer,
 The configured public URL is the browser-facing origin through the reverse proxy. Use HTTPS in normal deployments, preserve the original host/scheme at the proxy, and register the exact displayed callback URI. Plain HTTP is accepted only for loopback development URLs such as `http://localhost:8080`.
 
 OIDC settings live in Admin Settings, not `.env` or Compose. The client secret is encrypted through the Phase 2 secret store and is never returned after saving. Post-activation edits are tested before they replace the last-known-good active configuration, so an invalid draft does not break current login.
+
+## Media provider configuration
+
+An administrator configures all media providers in Gradeium under **Settings → Integrations**:
+
+- IGDB uses a Twitch application client ID and client secret.
+- TMDB uses an API Read Access Token.
+- TVDB uses a v4 API key and an optional subscriber PIN when the key requires one.
+
+Save credentials, then use **Test connection**. Saved secret fields become configured/not-configured state and are never returned to the browser. Replacing credentials invalidates the previous connection-test result until the new values are tested. Provider credentials are encrypted with the same master-key-backed secret store used by OIDC; there are deliberately no IGDB, TMDB, or TVDB environment variables.
+
+Provider downtime does not prevent an authenticated user from opening already-stored Library, Backlog, or detail data, and it does not affect liveness/readiness. Searches, new Adds, and manual metadata refreshes return bounded, user-safe errors until the affected provider recovers.
+
+## Core media behavior
+
+Every item has a Gradeium-owned UUIDv7 identity while provider IDs remain unique external references. Canonical provider metadata is stored separately for Games, Movies, and TV Shows, and personal state is stored separately per user.
+
+- Library statuses are In Progress, On Hold, Abandoned, and Completed; Backlog is a separate view.
+- Ratings use 1.0–10.0 in exact 0.1 increments, with one optional private reason. Backlog cannot be rated.
+- Moving a rated item to Backlog requires confirmation and removes its rating and reason.
+- Artwork choices are limited to provider-supplied Cover/Poster, Backdrop, and Logo candidates. Pins survive metadata refresh; an unavailable pin falls back visibly to the provider default.
+- TV progress is episode-based in TVDB default aired order. Specials are tracked separately and never affect the regular-episode percentage. Status changes never alter progress automatically.
+- Removing an item deletes that user’s status, rating, reason, artwork pins, and—on TV—episode progress. Reusable canonical metadata may remain.
 
 ## Session and authorization security
 
@@ -147,7 +171,7 @@ go test -race ./...
 go vet ./...
 ```
 
-Set `GRADEIUM_TEST_DATABASE_URL` to a PostgreSQL 18 URL to include isolated migration/repository integration tests. They cover Phase 2-to-Phase 3 migration, first-admin concurrency, issuer-qualified identity uniqueness, hash-only sessions, expiry/revocation, and restart persistence. CI always supplies PostgreSQL 18.4.
+Set `GRADEIUM_TEST_DATABASE_URL` to a PostgreSQL 18 URL to include isolated migration/repository integration tests. In addition to the Phase 2/3 security coverage, they cover the Phase 3-to-Phase 4 migration, UUID/provider uniqueness, canonical and per-user state, rating/Backlog constraints, duplicate concurrency, collections, artwork pins, strict TV mapping persistence, TV Specials/progress, removal, and refresh preservation. CI supplies PostgreSQL 18.4.
 
 Frontend, from `frontend/`:
 
@@ -168,7 +192,7 @@ git diff --exit-code -- internal/database/sqlc
 Production image and Compose configuration, from the repository root:
 
 ```powershell
-docker build --tag gradeium:phase3 .
+docker build --tag gradeium:phase4 .
 docker compose config --quiet
 docker compose up --build --detach
 ```
@@ -179,7 +203,7 @@ The multi-stage image builds the Vite frontend and Go backend separately. The fi
 
 ## Project documentation
 
-Read [`AGENTS.md`](./AGENTS.md) and every document in [`docs/`](./docs/) before implementation work. Phase sequencing and scope are defined in [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md), with the current requirements in [`docs/CODEX_PHASE_3.md`](./docs/CODEX_PHASE_3.md).
+Read [`AGENTS.md`](./AGENTS.md) and every document in [`docs/`](./docs/) before implementation work. Phase sequencing and scope are defined in [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md), with the current milestone requirements in [`docs/CODEX_PHASE_4.md`](./docs/CODEX_PHASE_4.md).
 
 ## License
 
