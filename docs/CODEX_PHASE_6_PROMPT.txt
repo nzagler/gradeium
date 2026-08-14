@@ -1,0 +1,45 @@
+Implement GitHub issue #12 in nzagler/gradeium.
+
+Before changing anything:
+- read AGENTS.md
+- read every file under docs/
+- follow docs/CODEX_PHASE_6.md exactly
+
+Work on one dedicated branch, preferably codex/phase-6-1.0-hardening.
+
+This is the final planned pre-1.0 milestone. Do not add broad new product functionality.
+
+Implement and verify:
+- Appearance/theme completion, preferably Dark / Light / System with Dark as the default for new and existing users without a preference
+- per-user theme persistence through the existing preference system and portable backups
+- no obvious light-theme flash before dark/default-dark render
+- complete dark-mode polish across every 1.0 screen, component, chart, dialog, loading/empty/error state, and mobile layout
+- full Phase 1–5 regression and defect-fix pass
+- clean-install and Phase 5→6 PostgreSQL 18 migration verification
+- authentication/session/CSRF/origin/authorization/security regression
+- provider timeout/error/outage regression and strict TVDB→TMDB verification
+- backup/restore/scheduler/retention/disaster-recovery hardening
+- realistic personal-library performance/resource sanity checks
+- PostgreSQL outage/recovery and concurrency/race hardening
+- production Docker/Compose/Unraid-shaped verification
+- accessibility/responsive/browser consistency pass
+- documentation and 1.0 release readiness using the existing build-info mechanism
+
+Preserve every existing reliability and security guarantee. Do not weaken OIDC, sessions, CSRF, encrypted secrets, provider outage isolation, readiness behavior, backup safety, master-key recovery, or container hardening.
+
+Do not implement or scaffold Jellyfin, custom lists, favorites, imports, recommendations, social/history UI, user-management UI, local-password auth, public APIs/API keys, additional providers, or other post-1.0 functionality. Jellyfin is explicitly post-1.0.
+
+Internal episode watched_at persistence may remain, but do not expose watch dates/history in the 1.0 UI/API.
+
+Treat this as one branch and one draft PR. Work through every internal checkpoint in CODEX_PHASE_6.md without stopping for intermediate approval. If verification discovers defects, fix them and rerun the affected checks rather than merely reporting them.
+
+Run all backend, race, PostgreSQL 18 integration, sqlc, frontend, Docker, Compose, security, provider-outage, backup/restore, performance-sanity, responsive, accessibility, and browser verification required by CODEX_PHASE_6.md.
+
+When finished:
+1. review the complete diff against AGENTS.md and all docs
+2. report exactly which checks actually ran and their results
+3. commit the work clearly
+4. push the branch
+5. open one draft PR against main that closes issue #12
+6. do not merge the PR
+7. do not create a Git tag or GitHub Release
