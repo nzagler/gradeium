@@ -1,8 +1,8 @@
 # Gradeium
 
-Gradeium is a long-lived, self-hosted media tracker for Games, Movies, and TV Shows. The repository contains the complete Phase 4 core media product on top of its secure Go, React, PostgreSQL, OpenID Connect, and Docker foundation.
+Gradeium is a long-lived, self-hosted media tracker for Games, Movies, and TV Shows. The repository contains the complete Phase 5 pre-1.0 product on top of its secure Go, React, PostgreSQL, OpenID Connect, and Docker foundation.
 
-Games use IGDB, Movies use TMDB, and TV Shows use TVDB with a strictly verified TVDB-to-TMDB community-rating bridge. Each domain has provider search/Add, separate Library and Backlog views, personal statuses and ratings, full detail pages, provider artwork selection, and metadata refresh. TV also includes season/episode progress with Specials excluded from regular progress. Dashboard analytics, backup execution, Jellyfin, imports, custom lists, and user-management UI remain intentionally out of scope.
+Games use IGDB, Movies use TMDB, and TV Shows use TVDB with a strictly verified TVDB-to-TMDB community-rating bridge. Each domain has provider search/Add, separate Library and Backlog views, personal statuses and ratings, full detail pages, provider artwork selection, and metadata refresh. TV also includes season/episode progress with Specials excluded from regular progress. The dashboard summarizes the currently persisted library, while portable backups, safe restore, automatic retention, and ratings CSV export keep user-owned data recoverable. Jellyfin, imports, custom lists, and user-management UI remain intentionally out of scope.
 
 ## Prerequisites
 
@@ -106,6 +106,22 @@ Every item has a Gradeium-owned UUIDv7 identity while provider IDs remain unique
 - TV progress is episode-based in TVDB default aired order. Specials are tracked separately and never affect the regular-episode percentage. Status changes never alter progress automatically.
 - Removing an item deletes that user’s status, rating, reason, artwork pins, and—on TV—episode progress. Reusable canonical metadata may remain.
 
+## Dashboard
+
+The authenticated Dashboard is a read-only view of current, locally persisted Gradeium state. Its All/Games/Movies/TV scopes show totals, current in-progress items, personal-rating and status distributions, highest-rated items, and regular-episode TV progress. It deliberately does not invent viewing history or depend on live metadata providers, so it remains useful during provider outages.
+
+## Portable backups and restore
+
+Gradeium writes application-managed backups to the persistent `/backups` mount as gzip-compressed, versioned JSON. The canonical Phase 5 format is `gradeium-backup` version `1`; filenames use UTC timestamps and each completed file is validated and checksummed before atomic publication.
+
+Portable backups contain Gradeium user identities, canonical Games/Movies/TV metadata, provider identity mappings, personal statuses and ratings/reasons, TV episode progress (including Specials), artwork pins, and user Library preferences. They never contain OIDC or provider secrets in plaintext or encrypted form, session material, CSRF tokens, database credentials, or the master key. `/config/master.key` and external-service credentials therefore remain a separate operator recovery responsibility.
+
+Administrators can create, list, validate, download, restore, and delete recognized backups from **Settings → Backups**. Every restore validates the entire input, creates a pre-restore safety backup, and applies portable application state in one PostgreSQL transaction. Restore reconciles users using their stable OIDC issuer/subject identity, does not import administrator privileges, and never replaces the installation's current authentication, sessions, or encrypted credentials. A failed validation or transaction leaves the current database state unchanged.
+
+Automatic backups are enabled by default every 3 days and retain the latest 30 automatic backups. Schedule and retention state live in PostgreSQL; an overdue installation runs one backup after startup. Retention never removes manual or pre-restore backups. Backup failures are reported in Settings without changing liveness or database readiness.
+
+For disaster recovery, retain the portable backup files together with a separately protected copy of `/config/master.key` and a secure record of external-service credentials. Restore the Gradeium backup through a currently authenticated administrator; re-enter secrets through Admin Settings when moving to a new installation. Each user can also download a UTF-8 CSV of their current rated items from **Settings → Library**; administrators have the same export action in **Settings → Backups**. CSV export is intentionally one-way; import remains out of scope.
+
 ## Session and authorization security
 
 Gradeium sessions are server-side PostgreSQL rows. The browser receives a cryptographically random opaque cookie; PostgreSQL stores only its SHA-256 hash. Cookies are `HttpOnly`, `SameSite=Lax`, restricted to `Path=/`, finite-lived, and `Secure` whenever the configured public URL uses HTTPS.
@@ -171,7 +187,7 @@ go test -race ./...
 go vet ./...
 ```
 
-Set `GRADEIUM_TEST_DATABASE_URL` to a PostgreSQL 18 URL to include isolated migration/repository integration tests. In addition to the Phase 2/3 security coverage, they cover the Phase 3-to-Phase 4 migration, UUID/provider uniqueness, canonical and per-user state, rating/Backlog constraints, duplicate concurrency, collections, artwork pins, strict TV mapping persistence, TV Specials/progress, removal, and refresh preservation. CI supplies PostgreSQL 18.4.
+Set `GRADEIUM_TEST_DATABASE_URL` to a PostgreSQL 18 URL to include isolated migration/repository integration tests. In addition to the existing authentication, security, and media coverage, tests cover the Phase 4-to-Phase 5 migration, dashboard isolation and aggregates, CSV escaping, portable backup validation and atomic publication, transactional restore and rollback, pre-restore safety backups, secret/session preservation, scheduler persistence, overdue execution, retention, and backup-operation serialization. CI supplies PostgreSQL 18.4.
 
 Frontend, from `frontend/`:
 
@@ -192,7 +208,7 @@ git diff --exit-code -- internal/database/sqlc
 Production image and Compose configuration, from the repository root:
 
 ```powershell
-docker build --tag gradeium:phase4 .
+docker build --tag gradeium:phase5 .
 docker compose config --quiet
 docker compose up --build --detach
 ```
@@ -203,7 +219,7 @@ The multi-stage image builds the Vite frontend and Go backend separately. The fi
 
 ## Project documentation
 
-Read [`AGENTS.md`](./AGENTS.md) and every document in [`docs/`](./docs/) before implementation work. Phase sequencing and scope are defined in [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md), with the current milestone requirements in [`docs/CODEX_PHASE_4.md`](./docs/CODEX_PHASE_4.md).
+Read [`AGENTS.md`](./AGENTS.md) and every document in [`docs/`](./docs/) before implementation work. Phase sequencing and scope are defined in [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md), with the current milestone requirements in [`docs/CODEX_PHASE_5.md`](./docs/CODEX_PHASE_5.md). Gradeium remains pre-1.0 until the dedicated Phase 6 hardening and release work is complete.
 
 ## License
 

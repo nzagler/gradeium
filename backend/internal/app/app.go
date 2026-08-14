@@ -8,10 +8,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/nzagler/gradeium/backend/internal/auth"
+	"github.com/nzagler/gradeium/backend/internal/backups"
+	"github.com/nzagler/gradeium/backend/internal/buildinfo"
 	"github.com/nzagler/gradeium/backend/internal/config"
+	"github.com/nzagler/gradeium/backend/internal/dashboard"
 	"github.com/nzagler/gradeium/backend/internal/database"
 	"github.com/nzagler/gradeium/backend/internal/games"
 	"github.com/nzagler/gradeium/backend/internal/httpserver"
@@ -80,7 +84,9 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	movieService := movies.NewService(integrationService, movies.NewPostgresStore(pool))
 	tvService := tv.NewService(integrationService, tv.NewPostgresStore(pool))
 	preferenceService := media.NewPreferencesService(pool)
-	apiHandler := httpserver.NewAPIWithMedia(
+	backupService := backups.NewService(backups.NewPostgresStore(pool), cfg.BackupsDir, buildinfo.Version)
+	dashboardService := dashboard.NewService(pool)
+	apiHandler := httpserver.NewAPIWithPhase5(
 		logger,
 		setupService,
 		settingsService,
@@ -93,7 +99,21 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		movieService,
 		tvService,
 		preferenceService,
+		backupService,
+		dashboardService,
 	)
+
+	schedulerContext, cancelScheduler := context.WithCancel(ctx)
+	var schedulerWait sync.WaitGroup
+	schedulerWait.Add(1)
+	go func() {
+		defer schedulerWait.Done()
+		backups.NewScheduler(backupService, logger).Run(schedulerContext)
+	}()
+	defer func() {
+		cancelScheduler()
+		schedulerWait.Wait()
+	}()
 
 	webHandler := http.NotFoundHandler()
 	webFS := os.DirFS(cfg.WebDir)

@@ -78,6 +78,32 @@ type AuthenticationState struct {
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Backup struct {
+	ID                 pgtype.UUID        `json:"id"`
+	Filename           string             `json:"filename"`
+	Kind               string             `json:"kind"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	SizeBytes          int64              `json:"size_bytes"`
+	Sha256             string             `json:"sha256"`
+	FormatVersion      int32              `json:"format_version"`
+	ApplicationVersion string             `json:"application_version"`
+	Valid              bool               `json:"valid"`
+	RecordedAt         pgtype.Timestamptz `json:"recorded_at"`
+}
+
+type BackupSetting struct {
+	Singleton                 bool               `json:"singleton"`
+	Enabled                   bool               `json:"enabled"`
+	IntervalDays              int32              `json:"interval_days"`
+	RetentionCount            int32              `json:"retention_count"`
+	ScheduleAnchorAt          pgtype.Timestamptz `json:"schedule_anchor_at"`
+	LastAttemptAt             pgtype.Timestamptz `json:"last_attempt_at"`
+	LastSuccessfulAutomaticAt pgtype.Timestamptz `json:"last_successful_automatic_at"`
+	LastError                 pgtype.Text        `json:"last_error"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+}
+
 type EncryptionKeyState struct {
 	Singleton      bool               `json:"singleton"`
 	KeyFingerprint []byte             `json:"key_fingerprint"`

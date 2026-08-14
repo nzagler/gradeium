@@ -8,6 +8,8 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM golang:1.26.5-bookworm AS backend-build
+ARG GRADEIUM_VERSION=development
+ARG GRADEIUM_COMMIT=unknown
 WORKDIR /src/backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
@@ -15,7 +17,7 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -buildvcs=false \
     -trimpath \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X github.com/nzagler/gradeium/backend/internal/buildinfo.Version=${GRADEIUM_VERSION} -X github.com/nzagler/gradeium/backend/internal/buildinfo.Commit=${GRADEIUM_COMMIT}" \
     -o /out/gradeium \
     ./cmd/gradeium
 
