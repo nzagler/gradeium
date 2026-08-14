@@ -1,0 +1,26 @@
+Implement GitHub issue #8 in nzagler/gradeium.
+
+Before changing anything:
+- read AGENTS.md
+- read every file under docs/
+- follow docs/CODEX_PHASE_4.md exactly
+
+Work on a dedicated branch, preferably codex/phase-4-full-media.
+
+Implement the entire Phase 4 core media product in one milestone: Games + Movies + TV Shows, provider configuration/testing for IGDB/TMDB/TVDB, search/add flows, canonical and per-user persistence, statuses, ratings/reasons, Library/Backlog, sorting/filtering, cards, full detail pages, artwork manager, metadata refresh/caching, IGDB normalization, movie collections, TV seasons/episodes/progress, and strict TVDB→TMDB mapping.
+
+Preserve every Phase 1–3 reliability and security guarantee. Provider credentials must be configured only through Gradeium Admin Settings and existing encrypted secret storage, never provider-specific environment variables.
+
+Do not implement Dashboard, backups/restore/export, Jellyfin, custom lists, favorites, imports, recommendations, user-management UI, or other later/post-1.0 functionality.
+
+Treat this as one branch and one draft PR, but work through the internal checkpoints in CODEX_PHASE_4.md without stopping for approval. Fix defects found during later verification rather than only reporting them.
+
+Run all available backend, race, PostgreSQL integration, deterministic provider, frontend, Docker, Compose, security, persistence, outage, responsive, and browser verification required by CODEX_PHASE_4.md.
+
+When finished:
+1. review the entire diff against AGENTS.md and all docs
+2. report exactly which checks actually ran and their results
+3. commit the work clearly
+4. push the branch
+5. open a draft PR against main that closes issue #8
+6. do not merge the PR
