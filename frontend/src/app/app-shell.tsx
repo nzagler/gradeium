@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Film,
   Gamepad2,
@@ -12,6 +12,7 @@ import {
 import { NavLink, Outlet } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { getSettings } from "@/api/client"
 import { cn } from "@/lib/utils"
 
 type NavigationItem = {
@@ -28,7 +29,7 @@ const navigation: NavigationItem[] = [
   { label: "Settings", path: "/settings", icon: Settings },
 ]
 
-function Brand() {
+function Brand({ name }: { name: string }) {
   return (
     <NavLink
       to="/"
@@ -38,7 +39,7 @@ function Brand() {
       <span className="grid size-9 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
         G
       </span>
-      <span className="text-base font-semibold tracking-tight">Gradeium</span>
+      <span className="truncate text-base font-semibold tracking-tight">{name}</span>
     </NavLink>
   )
 }
@@ -72,22 +73,50 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell() {
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
+  const [instanceName, setInstanceName] = useState("Gradeium")
+
+  useEffect(() => {
+    let active = true
+    void getSettings()
+      .then((response) => {
+        const setting = response.settings.find(
+          (candidate) => candidate.key === "general.instance_name",
+        )
+        if (active && typeof setting?.value === "string") {
+          setInstanceName(setting.value)
+        }
+      })
+      .catch(() => {
+        // The shell remains usable with its safe default while settings retry.
+      })
+
+    function updateInstanceName(event: Event) {
+      if (event instanceof CustomEvent && typeof event.detail === "string") {
+        setInstanceName(event.detail)
+      }
+    }
+    window.addEventListener("gradeium:instance-name", updateInstanceName)
+    return () => {
+      active = false
+      window.removeEventListener("gradeium:instance-name", updateInstanceName)
+    }
+  }, [])
 
   return (
     <div className="min-h-svh bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-sidebar p-5 text-sidebar-foreground lg:flex">
-        <Brand />
+        <Brand name={instanceName} />
         <div className="mt-8 flex-1">
           <Navigation />
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Runtime foundation
+          Secure settings foundation
         </p>
       </aside>
 
       <header className="sticky top-0 z-30 border-b bg-background lg:hidden">
         <div className="flex h-16 items-center justify-between px-4">
-          <Brand />
+          <Brand name={instanceName} />
           <Button
             type="button"
             variant="ghost"

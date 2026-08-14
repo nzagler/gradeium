@@ -14,7 +14,8 @@ func TestRouterKeepsAPIRoutesOutOfSPAFallback(t *testing.T) {
 		"index.html":    &fstest.MapFile{Data: []byte("spa-index")},
 		"assets/app.js": &fstest.MapFile{Data: []byte("console.log('ok')")},
 	}
-	router := NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), readinessStub{}, NewSPAHandler(webFS))
+	api := http.HandlerFunc(apiNotFoundHandler)
+	router := NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), readinessStub{}, api, NewSPAHandler(webFS))
 
 	tests := []struct {
 		path       string
