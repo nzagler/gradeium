@@ -1,0 +1,7 @@
+Implement Phase 1 of Gradeium from `docs/CODEX_PHASE_1.md`.
+
+Before changing anything, read `AGENTS.md` and every document under `docs/` and treat them as the project source of truth. Work in a dedicated branch and open a pull request; do not push implementation changes directly to `main`.
+
+Keep strictly to Phase 1. Build only the runtime/repository foundation: Go backend, React/TypeScript/Vite/shadcn frontend shell, PostgreSQL/migrations, Docker/Compose, configuration validation, health/readiness endpoints, structured logging, graceful shutdown, CI, and foundation tests. Do not implement media domains, external metadata providers, OIDC/Pocket ID, Admin Settings, backups, Jellyfin, ratings/statuses, or fake dashboard data.
+
+Use the acceptance criteria and verification instructions in `docs/CODEX_PHASE_1.md`. Run every check you can actually run and report concrete results. Do not claim checks passed unless they were executed.
