@@ -13,11 +13,15 @@ import (
 	"github.com/nzagler/gradeium/backend/internal/config"
 	"github.com/nzagler/gradeium/backend/internal/database"
 	"github.com/nzagler/gradeium/backend/internal/httpserver"
+	"github.com/nzagler/gradeium/backend/internal/secrets"
+	"github.com/nzagler/gradeium/backend/internal/settings"
+	"github.com/nzagler/gradeium/backend/internal/setup"
 )
 
 const (
 	migrationTimeout = 2 * time.Minute
 	databaseTimeout  = 10 * time.Second
+	securityTimeout  = 10 * time.Second
 	shutdownTimeout  = 20 * time.Second
 )
 
@@ -38,6 +42,33 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	}
 	defer pool.Close()
 
+	registry := settings.NewRegistry()
+	secretStore := secrets.NewPostgresStore(pool)
+	securityCtx, cancelSecurity := context.WithTimeout(ctx, securityTimeout)
+	secretCipher, err := secrets.InitializeCipher(securityCtx, cfg.ConfigDir, secretStore)
+	if err != nil {
+		cancelSecurity()
+		return fmt.Errorf("initialize persistent master key: %w", err)
+	}
+	secretService := secrets.NewService(registry, secretStore, secretCipher)
+	if err := secretService.ValidateStored(securityCtx); err != nil {
+		cancelSecurity()
+		return fmt.Errorf("validate encrypted settings: %w", err)
+	}
+	cancelSecurity()
+
+	setupService := setup.NewService(setup.NewPostgresStore(pool))
+	settingsService := settings.NewService(registry, settings.NewPostgresStore(pool))
+	apiHandler := httpserver.NewAPI(
+		logger,
+		setupService,
+		settingsService,
+		secretService,
+		registry,
+		true,
+		httpserver.Phase2AdminAuthorization,
+	)
+
 	webHandler := http.NotFoundHandler()
 	webFS := os.DirFS(cfg.WebDir)
 	if _, err := fs.Stat(webFS, "index.html"); err != nil {
@@ -46,7 +77,7 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		webHandler = httpserver.NewSPAHandler(webFS)
 	}
 
-	router := httpserver.NewRouter(logger, pool, webHandler)
+	router := httpserver.NewRouter(logger, pool, apiHandler, webHandler)
 	server := httpserver.New(cfg.ListenAddress, router)
 
 	serverErrors := make(chan error, 1)

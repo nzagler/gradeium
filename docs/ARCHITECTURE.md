@@ -236,6 +236,8 @@ Preferred long-lived self-hosted approach:
 
 This minimizes manual bootstrap configuration while keeping database dumps alone insufficient to expose provider secrets.
 
+Gradeium may persist a one-way cryptographic fingerprint of the master key in PostgreSQL. The fingerprint is not key material; it exists only so startup can reject a missing or mismatched `/config` key instead of silently generating a replacement for an established database.
+
 The `/config` key file must be included in disaster-recovery guidance. Do not include raw decrypted secrets in portable user-data backups.
 
 ### Secret API behavior

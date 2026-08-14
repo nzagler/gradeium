@@ -13,6 +13,22 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.4-bookworm
+        env:
+          POSTGRES_DB: gradeium_ci
+          POSTGRES_USER: gradeium
+          POSTGRES_PASSWORD: gradeium-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gradeium -d gradeium_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      GRADEIUM_TEST_DATABASE_URL: postgres://gradeium:gradeium-ci-only@127.0.0.1:5432/gradeium_ci?sslmode=disable
     defaults:
       run:
         working-directory: backend
@@ -33,6 +49,11 @@ jobs:
             echo "$unformatted"
             exit 1
           fi
+      - name: Verify generated SQL queries
+        shell: bash
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src sqlc/sqlc:1.31.1 generate
+          git diff --exit-code -- internal/database/sqlc
       - name: Run tests
         run: go test ./...
       - name: Run vet
