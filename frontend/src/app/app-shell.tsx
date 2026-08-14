@@ -50,11 +50,11 @@ function Brand({ name }: { name: string }) {
   )
 }
 
-function Navigation({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin: boolean }) {
+function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav aria-label="Primary navigation" className="space-y-5">
       <div className="space-y-1">
-      {primaryNavigation.filter((item) => item.path !== "/settings" || isAdmin).slice(0,1).map((item) => {
+      {primaryNavigation.slice(0, 1).map((item) => {
         const Icon = item.icon
         return (
           <NavLink
@@ -85,7 +85,7 @@ function Navigation({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin:
           </div>
         </div>
       })}
-      {isAdmin && <div className="space-y-1">{primaryNavigation.slice(1).map((item)=>{const Icon=item.icon;return <NavLink key={item.path} to={item.path} onClick={onNavigate} className={({isActive})=>cn("flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",isActive&&"bg-accent text-accent-foreground")}><Icon aria-hidden="true" className="size-4" />{item.label}</NavLink>})}</div>}
+      <div className="space-y-1">{primaryNavigation.slice(1).map((item)=>{const Icon=item.icon;return <NavLink key={item.path} to={item.path} onClick={onNavigate} className={({isActive})=>cn("flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",isActive&&"bg-accent text-accent-foreground")}><Icon aria-hidden="true" className="size-4" />{item.label}</NavLink>})}</div>
     </nav>
   )
 }
@@ -140,7 +140,7 @@ export function AppShell() {
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-sidebar p-5 text-sidebar-foreground lg:flex">
         <Brand name={instanceName} />
         <div className="mt-8 flex-1">
-          <Navigation isAdmin={user.isAdmin} />
+          <Navigation />
         </div>
         <div className="space-y-3 border-t pt-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -192,7 +192,6 @@ export function AppShell() {
         {mobileNavigationOpen && (
           <div id="mobile-navigation" className="border-t p-3">
             <Navigation
-              isAdmin={user.isAdmin}
               onNavigate={() => setMobileNavigationOpen(false)}
             />
             <div className="mt-3 border-t pt-3">

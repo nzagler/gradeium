@@ -64,9 +64,20 @@ export type SettingsResponse = {
 
 export type SystemStatus = {
   setupComplete: boolean
+  authenticationActivated: boolean
   masterKey: {
     available: boolean
     storage: string
+  }
+  application: {
+    version: string
+    commit: string
+    goVersion: string
+  }
+  backups?: {
+    available: boolean
+    automaticEnabled: boolean
+    lastSuccessfulAutomaticAt?: string
   }
 }
 
@@ -240,6 +251,56 @@ export type LibraryPreferences = {
   preferredView: "grid" | "list"
 }
 
+export type DashboardScope = "all" | MediaDomain
+
+export type DashboardItem = {
+  domain: MediaDomain
+  id: string
+  title: string
+  year?: number
+  artworkUrl?: string
+  status: MediaStatus
+  rating?: number
+  watched?: number
+  total?: number
+  percent?: number
+  nextEpisode?: string
+}
+
+export type DashboardResponse = {
+  scope: DashboardScope
+  totals: Record<MediaDomain, { tracked: number; library: number; backlog: number }>
+  averageRating?: number
+  averageByDomain: Record<MediaDomain, number | null>
+  ratingDistribution: { key: string; label: string; count: number }[]
+  statusDistribution: { key: MediaStatus; label: string; count: number }[]
+  inProgress: DashboardItem[]
+  highestRated: DashboardItem[]
+  tvProgress: DashboardItem[]
+}
+
+export type BackupMetadata = {
+  id: string
+  filename: string
+  kind: "manual" | "automatic" | "pre_restore"
+  createdAt: string
+  sizeBytes: number
+  sha256: string
+  formatVersion: number
+  applicationVersion: string
+  valid: boolean
+}
+
+export type BackupSettings = {
+  enabled: boolean
+  intervalDays: number
+  retentionCount: number
+  lastAttemptAt?: string
+  lastSuccessfulAutomaticAt?: string
+  nextDueAt?: string
+  lastError?: string
+}
+
 type APIErrorResponse = {
   error?: string
   message?: string
@@ -387,6 +448,99 @@ export function testIntegration(provider: string) {
 
 export function getLibraryPreferences() {
   return apiRequest<LibraryPreferences>("/preferences/library")
+}
+
+export function getDashboard(scope: DashboardScope) {
+  return apiRequest<DashboardResponse>(
+    `/dashboard/?scope=${encodeURIComponent(scope)}`,
+  )
+}
+
+export function getBackups() {
+  return apiRequest<{ backups: BackupMetadata[] }>("/admin/backups")
+}
+
+export function getBackupSettings() {
+  return apiRequest<BackupSettings>("/admin/backups/settings")
+}
+
+export function updateBackupSettings(value: BackupSettings) {
+  return apiRequest<BackupSettings>("/admin/backups/settings", {
+    method: "PUT",
+    body: JSON.stringify(value),
+  })
+}
+
+export function createBackup() {
+  return apiRequest<BackupMetadata>("/admin/backups", { method: "POST" })
+}
+
+export function restoreBackup(id: string) {
+  return apiRequest<{ restored: true; safetyBackup: BackupMetadata }>(
+    `/admin/backups/${encodeURIComponent(id)}/restore`,
+    { method: "POST", body: JSON.stringify({ confirmation: "RESTORE" }) },
+  )
+}
+
+export function deleteBackup(id: string) {
+  return apiRequest<{ deleted: true }>(`/admin/backups/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    body: JSON.stringify({ confirmation: "DELETE" }),
+  })
+}
+
+export async function restoreBackupUpload(file: File) {
+  const headers = new Headers({
+    Accept: "application/json",
+    "Content-Type": file.type === "application/gzip" ? file.type : "application/octet-stream",
+    "X-Gradeium-Restore-Confirmation": "RESTORE",
+  })
+  if (sessionCSRFToken) headers.set("X-CSRF-Token", sessionCSRFToken)
+  const response = await fetch("/api/admin/backups/restore", {
+    method: "POST",
+    headers,
+    body: file,
+    credentials: "same-origin",
+  })
+  const body = (await response.json().catch(() => ({}))) as APIErrorResponse & {
+    restored?: true
+    safetyBackup?: BackupMetadata
+  }
+  if (!response.ok || !body.restored || !body.safetyBackup) {
+    throw new APIError(
+      body.message ?? "The backup could not be restored.",
+      response.status,
+      body.error,
+    )
+  }
+  return body as { restored: true; safetyBackup: BackupMetadata }
+}
+
+async function download(path: string, fallbackName: string) {
+  const response = await fetch(`/api${path}`, { credentials: "same-origin" })
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as APIErrorResponse
+    throw new APIError(body.message ?? "The download could not be created.", response.status, body.error)
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? ""
+  const match = disposition.match(/filename="([^"]+)"/)
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = match?.[1] ?? fallbackName
+  document.body.append(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+export function downloadBackup(id: string) {
+  return download(`/admin/backups/${encodeURIComponent(id)}/download`, "gradeium-backup.json.gz")
+}
+
+export function downloadRatingsCSV() {
+  return download("/exports/ratings.csv", "gradeium-ratings.csv")
 }
 
 export function updateLibraryPreferences(value: LibraryPreferences) {

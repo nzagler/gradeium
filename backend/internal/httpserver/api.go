@@ -12,6 +12,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	authpackage "github.com/nzagler/gradeium/backend/internal/auth"
+	"github.com/nzagler/gradeium/backend/internal/backups"
+	"github.com/nzagler/gradeium/backend/internal/buildinfo"
+	"github.com/nzagler/gradeium/backend/internal/dashboard"
 	"github.com/nzagler/gradeium/backend/internal/games"
 	"github.com/nzagler/gradeium/backend/internal/integrations"
 	"github.com/nzagler/gradeium/backend/internal/media"
@@ -71,6 +74,8 @@ type apiHandlers struct {
 	movies             *movies.Service
 	tv                 *tv.Service
 	preferences        *media.PreferencesService
+	backups            *backups.Service
+	dashboard          *dashboard.Service
 	masterKeyAvailable bool
 }
 
@@ -103,6 +108,27 @@ func NewAPIWithMedia(
 	tvService *tv.Service,
 	preferenceService *media.PreferencesService,
 ) http.Handler {
+	return NewAPIWithPhase5(logger, setupService, settingsService, secretService, registry, authentication, masterKeyAvailable, integrationService, gameService, movieService, tvService, preferenceService, nil, nil)
+}
+
+// NewAPIWithPhase5 adds the persisted-state Dashboard, portable backup, and
+// ratings export surfaces without changing focused earlier-phase constructors.
+func NewAPIWithPhase5(
+	logger *slog.Logger,
+	setupService SetupService,
+	settingsService SettingsService,
+	secretService SecretService,
+	registry *settings.Registry,
+	authentication AuthenticationService,
+	masterKeyAvailable bool,
+	integrationService *integrations.Service,
+	gameService *games.Service,
+	movieService *movies.Service,
+	tvService *tv.Service,
+	preferenceService *media.PreferencesService,
+	backupService *backups.Service,
+	dashboardService *dashboard.Service,
+) http.Handler {
 	handlers := &apiHandlers{
 		logger:             logger,
 		setup:              setupService,
@@ -115,6 +141,8 @@ func NewAPIWithMedia(
 		movies:             movieService,
 		tv:                 tvService,
 		preferences:        preferenceService,
+		backups:            backupService,
+		dashboard:          dashboardService,
 		masterKeyAvailable: masterKeyAvailable,
 	}
 
@@ -145,9 +173,15 @@ func NewAPIWithMedia(
 			admin.Put("/integrations/{provider}", handlers.configureIntegration)
 			admin.Post("/integrations/{provider}/test", handlers.testIntegration)
 		}
+		if handlers.backups != nil {
+			handlers.mountBackupRoutes(admin)
+		}
 	})
 	if handlers.games != nil && handlers.movies != nil && handlers.tv != nil {
 		handlers.mountMediaRoutes(router)
+	}
+	if handlers.dashboard != nil {
+		handlers.mountDashboardRoutes(router)
 	}
 	router.NotFound(apiNotFoundHandler)
 	return router
@@ -343,13 +377,33 @@ func (handlers *apiHandlers) systemStatus(w http.ResponseWriter, r *http.Request
 		handlers.internalError(w, r, "read system status", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"setupComplete": complete,
+	authentication, err := withTimeoutResult(r.Context(), handlers.authentication.State)
+	if err != nil {
+		handlers.internalError(w, r, "read authentication system status", err)
+		return
+	}
+	response := map[string]any{
+		"setupComplete":           complete,
+		"authenticationActivated": authentication.Activated,
 		"masterKey": map[string]any{
 			"available": handlers.masterKeyAvailable,
 			"storage":   "persistent config mount",
 		},
-	})
+		"application": buildinfo.Current(),
+	}
+	if handlers.backups != nil {
+		settings, settingsErr := withTimeoutResult(r.Context(), handlers.backups.Settings)
+		if settingsErr != nil {
+			handlers.internalError(w, r, "read backup system status", settingsErr)
+			return
+		}
+		response["backups"] = map[string]any{
+			"available":                 true,
+			"automaticEnabled":          settings.Enabled,
+			"lastSuccessfulAutomaticAt": settings.LastSuccessfulAutomaticAt,
+		}
+	}
+	writeJSON(w, http.StatusOK, response)
 }
 
 func decodeJSONBody(w http.ResponseWriter, r *http.Request, destination any) error {

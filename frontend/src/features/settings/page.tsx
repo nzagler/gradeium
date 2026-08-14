@@ -15,7 +15,7 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react"
-import { NavLink, useParams } from "react-router-dom"
+import { Navigate, NavLink, useParams } from "react-router-dom"
 
 import {
   getSettings,
@@ -29,8 +29,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { AuthenticationPanel } from "@/features/auth/authentication-panel"
+import { useAuth } from "@/features/auth/auth-context"
 import { IntegrationsPanel } from "@/features/settings/integrations-panel"
 import { LibrarySettings } from "@/features/settings/library-settings"
+import { BackupsPanel } from "@/features/settings/backups-panel"
 
 const instanceNameKey = "general.instance_name"
 
@@ -67,12 +69,16 @@ type PageState =
     }
 
 export function SettingsPage() {
+  const { user } = useAuth()
   const { section } = useParams<{ section?: string }>()
   const activeSection =
-    sections.find((candidate) => candidate.slug === section)?.slug ?? "general"
+    user.isAdmin
+      ? sections.find((candidate) => candidate.slug === section)?.slug ?? "general"
+      : "library"
   const [state, setState] = useState<PageState>({ status: "loading" })
 
   async function loadSettings() {
+    if (!user.isAdmin) return
     try {
       const [settingsResponse, system] = await Promise.all([
         getSettings(),
@@ -89,6 +95,7 @@ export function SettingsPage() {
   }
 
   useEffect(() => {
+    if (!user.isAdmin) return
     let active = true
     void Promise.all([getSettings(), getSystemStatus()])
       .then(([settingsResponse, system]) => {
@@ -108,7 +115,11 @@ export function SettingsPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [user.isAdmin])
+
+  if (!user.isAdmin && section !== undefined && section !== "library") {
+    return <Navigate to="/settings/library" replace />
+  }
 
   return (
     <section aria-labelledby="settings-title">
@@ -121,16 +132,19 @@ export function SettingsPage() {
             Settings
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Manage the small set of configuration available in this foundation.
+            Manage Library preferences and, for administrators, installation settings.
           </p>
         </div>
       </div>
 
       <div className="mt-8 grid gap-7 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <SettingsNavigation activeSection={activeSection} />
+        <SettingsNavigation activeSection={activeSection} isAdmin={user.isAdmin} />
         <div className="min-w-0">
-          {state.status === "loading" && <SettingsLoading />}
-          {state.status === "error" && (
+          {!user.isAdmin && (
+            <SettingsContent section="library" settings={[]} />
+          )}
+          {user.isAdmin && state.status === "loading" && <SettingsLoading />}
+          {user.isAdmin && state.status === "error" && (
             <SettingsError
               message={state.message}
               retry={() => {
@@ -139,7 +153,7 @@ export function SettingsPage() {
               }}
             />
           )}
-          {state.status === "ready" && (
+          {user.isAdmin && state.status === "ready" && (
             <SettingsContent
               section={activeSection}
               settings={state.settings}
@@ -152,13 +166,13 @@ export function SettingsPage() {
   )
 }
 
-function SettingsNavigation({ activeSection }: { activeSection: SectionSlug }) {
+function SettingsNavigation({ activeSection, isAdmin }: { activeSection: SectionSlug; isAdmin: boolean }) {
   return (
     <nav
       aria-label="Settings sections"
       className="flex gap-1 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0"
     >
-      {sections.map((section) => {
+      {sections.filter((section) => isAdmin || section.slug === "library").map((section) => {
         const Icon = section.icon
         return (
           <NavLink
@@ -186,12 +200,12 @@ function SettingsContent({
 }: {
   section: SectionSlug
   settings: SettingDefinition[]
-  system: SystemStatus
+  system?: SystemStatus
 }) {
   if (section === "general") {
     return <GeneralSettings settings={settings} />
   }
-  if (section === "system") {
+  if (section === "system" && system) {
     return <SystemSettings status={system} />
   }
   if (section === "authentication") {
@@ -203,14 +217,13 @@ function SettingsContent({
   if (section === "integrations") {
     return <IntegrationsPanel />
   }
-  const futureCopy: Record<Exclude<SectionSlug, "general" | "system" | "authentication" | "library" | "integrations">, string> = {
-    backups:
-      "Backup scheduling and execution are not part of this foundation. The persistent mount remains prepared for that later work.",
+  if (section === "backups") {
+    return <BackupsPanel />
   }
   return (
     <SettingsCard
       title={sections.find((candidate) => candidate.slug === section)?.label ?? "Settings"}
-      description={futureCopy[section]}
+      description="This settings section is not available."
     >
       <p className="text-sm text-muted-foreground">Available in a later phase.</p>
     </SettingsCard>
@@ -300,9 +313,25 @@ function SystemSettings({ status }: { status: SystemStatus }) {
           value={status.masterKey.available ? "Available" : "Unavailable"}
           healthy={status.masterKey.available}
         />
+        <StatusRow
+          label="Authentication"
+          value={status.authenticationActivated ? "Activated" : "Not activated"}
+          healthy={status.authenticationActivated}
+        />
+        {status.backups && (
+          <StatusRow
+            label="Backup runtime"
+            value={status.backups.available ? (status.backups.automaticEnabled ? "Available · automatic enabled" : "Available · automatic disabled") : "Unavailable"}
+            healthy={status.backups.available}
+          />
+        )}
         <div className="grid gap-1 px-4 py-3 sm:grid-cols-[10rem_1fr] sm:items-center">
           <dt className="text-sm font-medium">Key storage</dt>
           <dd className="text-sm text-muted-foreground">{status.masterKey.storage}</dd>
+        </div>
+        <div className="grid gap-1 px-4 py-3 sm:grid-cols-[10rem_1fr] sm:items-center">
+          <dt className="text-sm font-medium">Application</dt>
+          <dd className="text-sm text-muted-foreground">{status.application.version} · {status.application.commit} · {status.application.goVersion}</dd>
         </div>
       </dl>
       <p className="mt-4 text-sm leading-6 text-muted-foreground">
