@@ -14,8 +14,12 @@ import (
 	"time"
 
 	authpackage "github.com/nzagler/gradeium/backend/internal/auth"
+	"github.com/nzagler/gradeium/backend/internal/games"
+	"github.com/nzagler/gradeium/backend/internal/integrations"
+	"github.com/nzagler/gradeium/backend/internal/movies"
 	secretspackage "github.com/nzagler/gradeium/backend/internal/secrets"
 	settingspackage "github.com/nzagler/gradeium/backend/internal/settings"
+	"github.com/nzagler/gradeium/backend/internal/tv"
 )
 
 type apiSetupService struct {
@@ -175,6 +179,67 @@ func newTestAPI(t *testing.T) (http.Handler, *apiSetupService, *apiAuthenticatio
 		true,
 	)
 	return api, setupService, authentication, logOutput
+}
+
+func newTestMediaAPI(t *testing.T) (http.Handler, *apiSetupService, *apiAuthenticationService) {
+	t.Helper()
+	registry := settingspackage.NewRegistry()
+	settingsStore := &apiSettingsStore{values: make(map[string]json.RawMessage)}
+	secretStore := &apiSecretStore{records: make(map[string]secretspackage.Record)}
+	cipher, err := secretspackage.NewCipher(bytes.Repeat([]byte{0x55}, 32))
+	if err != nil {
+		t.Fatalf("NewCipher returned an error: %v", err)
+	}
+	setupService := &apiSetupService{complete: true}
+	authentication := newAPIAuthenticationService()
+	logger := slog.New(slog.NewJSONHandler(&bytes.Buffer{}, nil))
+	api := NewAPIWithMedia(
+		logger,
+		setupService,
+		settingspackage.NewService(registry, settingsStore),
+		secretspackage.NewService(registry, secretStore, cipher),
+		registry,
+		authentication,
+		true,
+		integrations.NewService(nil, nil, nil),
+		games.NewService(nil, nil),
+		movies.NewService(nil, nil),
+		tv.NewService(nil, nil),
+		nil,
+	)
+	return api, setupService, authentication
+}
+
+func TestPhase4MediaAndProviderRoutesEnforceAuthenticationAuthorizationAndCSRF(t *testing.T) {
+	api, _, authentication := newTestMediaAPI(t)
+
+	response := performAPIRequest(api, http.MethodGet, "/games/", "", false, false)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated Library status = %d, want 401", response.Code)
+	}
+	response = performAPIRequest(api, http.MethodPost, "/games/", `{"providerId":1,"status":"backlog"}`, true, false)
+	if response.Code != http.StatusForbidden || !strings.Contains(response.Body.String(), "csrf_rejected") {
+		t.Fatalf("media mutation without CSRF = %d %q", response.Code, response.Body.String())
+	}
+	request := httptest.NewRequest(http.MethodPost, "/games/", strings.NewReader(`{"providerId":1,"status":"backlog"}`))
+	request.AddCookie(&http.Cookie{Name: authpackage.SessionCookieName, Value: "test-session"})
+	request.Header.Set(authpackage.CSRFHeaderName, "test-csrf")
+	request.Header.Set("Origin", "https://evil.example")
+	response = httptest.NewRecorder()
+	api.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("cross-origin media mutation = %d, want 403", response.Code)
+	}
+
+	response = performAPIRequest(api, http.MethodGet, "/admin/integrations", "", false, false)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated provider settings = %d, want 401", response.Code)
+	}
+	authentication.isAdmin = false
+	response = performAPIRequest(api, http.MethodGet, "/admin/integrations", "", true, false)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("non-admin provider settings = %d, want 403", response.Code)
+	}
 }
 
 func TestSetupAPIIsOneTimeAndAdminRoutesRequireAuthentication(t *testing.T) {

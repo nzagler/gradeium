@@ -5,8 +5,56 @@
 package db
 
 import (
+	"database/sql/driver"
+	"fmt"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type MediaStatus string
+
+const (
+	MediaStatusBacklog    MediaStatus = "backlog"
+	MediaStatusInProgress MediaStatus = "in_progress"
+	MediaStatusOnHold     MediaStatus = "on_hold"
+	MediaStatusAbandoned  MediaStatus = "abandoned"
+	MediaStatusCompleted  MediaStatus = "completed"
+)
+
+func (e *MediaStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MediaStatus(s)
+	case string:
+		*e = MediaStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MediaStatus: %T", src)
+	}
+	return nil
+}
+
+type NullMediaStatus struct {
+	MediaStatus MediaStatus `json:"media_status"`
+	Valid       bool        `json:"valid"` // Valid is true if MediaStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMediaStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.MediaStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MediaStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMediaStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MediaStatus), nil
+}
 
 type AppSetting struct {
 	Key       string             `json:"key"`
@@ -40,6 +88,108 @@ type Entity struct {
 	ID        pgtype.UUID        `json:"id"`
 	Type      string             `json:"type"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Game struct {
+	EntityID             pgtype.UUID        `json:"entity_id"`
+	IgdbID               int64              `json:"igdb_id"`
+	EnglishTitle         string             `json:"english_title"`
+	OriginalTitle        pgtype.Text        `json:"original_title"`
+	Summary              pgtype.Text        `json:"summary"`
+	FirstReleaseDate     pgtype.Date        `json:"first_release_date"`
+	ReleaseYear          pgtype.Int4        `json:"release_year"`
+	GameType             string             `json:"game_type"`
+	Developer            pgtype.Text        `json:"developer"`
+	Publisher            pgtype.Text        `json:"publisher"`
+	Genres               []string           `json:"genres"`
+	GameModes            []string           `json:"game_modes"`
+	Platforms            []string           `json:"platforms"`
+	Franchise            pgtype.Text        `json:"franchise"`
+	CommunityRating      pgtype.Int2        `json:"community_rating"`
+	CommunityRatingCount pgtype.Int4        `json:"community_rating_count"`
+	Screenshots          []byte             `json:"screenshots"`
+	ExternalLinks        []byte             `json:"external_links"`
+	MetadataRefreshedAt  pgtype.Timestamptz `json:"metadata_refreshed_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GameAdditionalContent struct {
+	GameID      pgtype.UUID `json:"game_id"`
+	IgdbID      int64       `json:"igdb_id"`
+	Title       string      `json:"title"`
+	ContentType string      `json:"content_type"`
+	ReleaseYear pgtype.Int4 `json:"release_year"`
+	CoverUrl    pgtype.Text `json:"cover_url"`
+}
+
+type GameRelatedRelease struct {
+	GameID       pgtype.UUID `json:"game_id"`
+	IgdbID       int64       `json:"igdb_id"`
+	Title        string      `json:"title"`
+	Relationship string      `json:"relationship"`
+	ReleaseYear  pgtype.Int4 `json:"release_year"`
+	CoverUrl     pgtype.Text `json:"cover_url"`
+}
+
+type IntegrationTestStatus struct {
+	Provider  string             `json:"provider"`
+	Status    string             `json:"status"`
+	Message   string             `json:"message"`
+	TestedAt  pgtype.Timestamptz `json:"tested_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MediaArtwork struct {
+	ID              pgtype.UUID        `json:"id"`
+	EntityID        pgtype.UUID        `json:"entity_id"`
+	Provider        string             `json:"provider"`
+	ProviderImageID string             `json:"provider_image_id"`
+	Kind            string             `json:"kind"`
+	Language        pgtype.Text        `json:"language"`
+	ImageUrl        string             `json:"image_url"`
+	ThumbnailUrl    string             `json:"thumbnail_url"`
+	Width           pgtype.Int4        `json:"width"`
+	Height          pgtype.Int4        `json:"height"`
+	Preferred       bool               `json:"preferred"`
+	Available       bool               `json:"available"`
+	SortOrder       int32              `json:"sort_order"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Movie struct {
+	EntityID             pgtype.UUID        `json:"entity_id"`
+	TmdbID               int64              `json:"tmdb_id"`
+	EnglishTitle         string             `json:"english_title"`
+	OriginalTitle        pgtype.Text        `json:"original_title"`
+	Overview             pgtype.Text        `json:"overview"`
+	ReleaseDate          pgtype.Date        `json:"release_date"`
+	ReleaseYear          pgtype.Int4        `json:"release_year"`
+	RuntimeMinutes       pgtype.Int4        `json:"runtime_minutes"`
+	Director             pgtype.Text        `json:"director"`
+	Genres               []string           `json:"genres"`
+	ProductionCompanies  []string           `json:"production_companies"`
+	CastMembers          []byte             `json:"cast_members"`
+	KeyCrew              []byte             `json:"key_crew"`
+	TrailerKey           pgtype.Text        `json:"trailer_key"`
+	ImdbID               pgtype.Text        `json:"imdb_id"`
+	Homepage             pgtype.Text        `json:"homepage"`
+	CollectionTmdbID     pgtype.Int8        `json:"collection_tmdb_id"`
+	CollectionName       pgtype.Text        `json:"collection_name"`
+	CommunityRating      pgtype.Int2        `json:"community_rating"`
+	CommunityRatingCount pgtype.Int4        `json:"community_rating_count"`
+	MetadataRefreshedAt  pgtype.Timestamptz `json:"metadata_refreshed_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MovieCollectionMember struct {
+	MovieID     pgtype.UUID `json:"movie_id"`
+	TmdbID      int64       `json:"tmdb_id"`
+	Title       string      `json:"title"`
+	ReleaseDate pgtype.Date `json:"release_date"`
+	PosterUrl   pgtype.Text `json:"poster_url"`
 }
 
 type OidcLoginFlow struct {
@@ -84,6 +234,62 @@ type SystemMetadatum struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type TvEpisode struct {
+	ID             pgtype.UUID        `json:"id"`
+	TvShowID       pgtype.UUID        `json:"tv_show_id"`
+	SeasonID       pgtype.UUID        `json:"season_id"`
+	TvdbEpisodeID  int64              `json:"tvdb_episode_id"`
+	SeasonNumber   int32              `json:"season_number"`
+	EpisodeNumber  int32              `json:"episode_number"`
+	SortOrder      int32              `json:"sort_order"`
+	EnglishTitle   string             `json:"english_title"`
+	Overview       pgtype.Text        `json:"overview"`
+	AirDate        pgtype.Date        `json:"air_date"`
+	RuntimeMinutes pgtype.Int4        `json:"runtime_minutes"`
+	StillUrl       pgtype.Text        `json:"still_url"`
+	IsSpecial      bool               `json:"is_special"`
+	Available      bool               `json:"available"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TvSeason struct {
+	ID           pgtype.UUID        `json:"id"`
+	TvShowID     pgtype.UUID        `json:"tv_show_id"`
+	TvdbSeasonID int64              `json:"tvdb_season_id"`
+	SeasonNumber int32              `json:"season_number"`
+	Name         pgtype.Text        `json:"name"`
+	IsSpecials   bool               `json:"is_specials"`
+	AirDate      pgtype.Date        `json:"air_date"`
+	PosterUrl    pgtype.Text        `json:"poster_url"`
+	Available    bool               `json:"available"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TvShow struct {
+	EntityID                   pgtype.UUID        `json:"entity_id"`
+	TvdbID                     int64              `json:"tvdb_id"`
+	VerifiedTmdbID             pgtype.Int8        `json:"verified_tmdb_id"`
+	EnglishTitle               string             `json:"english_title"`
+	OriginalTitle              pgtype.Text        `json:"original_title"`
+	Overview                   pgtype.Text        `json:"overview"`
+	FirstAired                 pgtype.Date        `json:"first_aired"`
+	ReleaseYear                pgtype.Int4        `json:"release_year"`
+	ProviderStatus             pgtype.Text        `json:"provider_status"`
+	NetworkName                pgtype.Text        `json:"network_name"`
+	Genres                     []string           `json:"genres"`
+	CastMembers                []byte             `json:"cast_members"`
+	KeyPeople                  []byte             `json:"key_people"`
+	CommunityRating            pgtype.Int2        `json:"community_rating"`
+	CommunityRatingCount       pgtype.Int4        `json:"community_rating_count"`
+	TmdbMappingVerifiedAt      pgtype.Timestamptz `json:"tmdb_mapping_verified_at"`
+	MetadataRefreshedAt        pgtype.Timestamptz `json:"metadata_refreshed_at"`
+	CommunityRatingRefreshedAt pgtype.Timestamptz `json:"community_rating_refreshed_at"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID              pgtype.UUID        `json:"id"`
 	ExternalSubject pgtype.Text        `json:"external_subject"`
@@ -94,4 +300,58 @@ type User struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	OidcIssuer      pgtype.Text        `json:"oidc_issuer"`
 	OidcSubject     pgtype.Text        `json:"oidc_subject"`
+}
+
+type UserEpisodeProgress struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	TvShowID  pgtype.UUID        `json:"tv_show_id"`
+	EpisodeID pgtype.UUID        `json:"episode_id"`
+	WatchedAt pgtype.Timestamptz `json:"watched_at"`
+}
+
+type UserGame struct {
+	UserID                          pgtype.UUID        `json:"user_id"`
+	GameID                          pgtype.UUID        `json:"game_id"`
+	Status                          MediaStatus        `json:"status"`
+	Rating                          pgtype.Int2        `json:"rating"`
+	RatingReason                    pgtype.Text        `json:"rating_reason"`
+	SelectedCoverProviderImageID    pgtype.Text        `json:"selected_cover_provider_image_id"`
+	SelectedBackdropProviderImageID pgtype.Text        `json:"selected_backdrop_provider_image_id"`
+	SelectedLogoProviderImageID     pgtype.Text        `json:"selected_logo_provider_image_id"`
+	DateAdded                       pgtype.Timestamptz `json:"date_added"`
+	UpdatedAt                       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserMovie struct {
+	UserID                          pgtype.UUID        `json:"user_id"`
+	MovieID                         pgtype.UUID        `json:"movie_id"`
+	Status                          MediaStatus        `json:"status"`
+	Rating                          pgtype.Int2        `json:"rating"`
+	RatingReason                    pgtype.Text        `json:"rating_reason"`
+	SelectedPosterProviderImageID   pgtype.Text        `json:"selected_poster_provider_image_id"`
+	SelectedBackdropProviderImageID pgtype.Text        `json:"selected_backdrop_provider_image_id"`
+	SelectedLogoProviderImageID     pgtype.Text        `json:"selected_logo_provider_image_id"`
+	DateAdded                       pgtype.Timestamptz `json:"date_added"`
+	UpdatedAt                       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserSetting struct {
+	UserID             pgtype.UUID        `json:"user_id"`
+	DefaultLibrarySort string             `json:"default_library_sort"`
+	PreferredView      string             `json:"preferred_view"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type UserTvShow struct {
+	UserID                          pgtype.UUID        `json:"user_id"`
+	TvShowID                        pgtype.UUID        `json:"tv_show_id"`
+	Status                          MediaStatus        `json:"status"`
+	Rating                          pgtype.Int2        `json:"rating"`
+	RatingReason                    pgtype.Text        `json:"rating_reason"`
+	SelectedPosterProviderImageID   pgtype.Text        `json:"selected_poster_provider_image_id"`
+	SelectedBackdropProviderImageID pgtype.Text        `json:"selected_backdrop_provider_image_id"`
+	SelectedLogoProviderImageID     pgtype.Text        `json:"selected_logo_provider_image_id"`
+	DateAdded                       pgtype.Timestamptz `json:"date_added"`
+	UpdatedAt                       pgtype.Timestamptz `json:"updated_at"`
 }

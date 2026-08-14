@@ -30,7 +30,7 @@ func TestServiceAppliesDefaultAndPersistsUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List returned an error: %v", err)
 	}
-	if len(values) != 4 || string(values[0].Value) != `"Gradeium"` || values[0].Configured {
+	if len(values) < 4 || string(values[0].Value) != `"Gradeium"` || values[0].Configured {
 		t.Fatalf("default values = %#v", values)
 	}
 

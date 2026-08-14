@@ -15,6 +15,14 @@ const (
 	AuthenticationClientSecretKey       = "authentication.client_secret"
 	AuthenticationPublicURLKey          = "authentication.public_url"
 	AuthenticationActiveClientSecretKey = "authentication.active_client_secret"
+	IGDBEnabledKey                      = "integrations.igdb.enabled"
+	IGDBClientIDKey                     = "integrations.igdb.client_id"
+	IGDBClientSecretKey                 = "integrations.igdb.client_secret"
+	TMDBEnabledKey                      = "integrations.tmdb.enabled"
+	TMDBAccessTokenKey                  = "integrations.tmdb.access_token"
+	TVDBEnabledKey                      = "integrations.tvdb.enabled"
+	TVDBAPIKey                          = "integrations.tvdb.api_key"
+	TVDBPINKey                          = "integrations.tvdb.pin"
 
 	// FutureAuthenticationSecretKey is retained as a source-compatible alias
 	// for the Phase 2 reserved key.
@@ -25,7 +33,8 @@ const (
 type ValueType string
 
 const (
-	ValueTypeString ValueType = "string"
+	ValueTypeString  ValueType = "string"
+	ValueTypeBoolean ValueType = "boolean"
 )
 
 // Sensitivity controls whether a value may be returned through the API.
@@ -113,6 +122,46 @@ func NewRegistry() *Registry {
 			Sensitivity: SensitivitySecret,
 			Internal:    true,
 		},
+		{
+			Key: IGDBEnabledKey, Section: "integrations", Label: "IGDB enabled",
+			Description: "Allow Gradeium to use the configured IGDB/Twitch application credentials.",
+			Type:        ValueTypeBoolean, Sensitivity: SensitivityPublic, Default: json.RawMessage(`false`),
+		},
+		{
+			Key: IGDBClientIDKey, Section: "integrations", Label: "IGDB client ID",
+			Description: "The Twitch application client ID used to access IGDB.",
+			Type:        ValueTypeString, Sensitivity: SensitivityPublic, MaxLength: 512,
+		},
+		{
+			Key: IGDBClientSecretKey, Section: "integrations", Label: "IGDB client secret",
+			Description: "The encrypted Twitch application client secret. Saved values are never displayed again.",
+			Type:        ValueTypeString, Sensitivity: SensitivitySecret,
+		},
+		{
+			Key: TMDBEnabledKey, Section: "integrations", Label: "TMDB enabled",
+			Description: "Allow Gradeium to use the configured TMDB API read access token.",
+			Type:        ValueTypeBoolean, Sensitivity: SensitivityPublic, Default: json.RawMessage(`false`),
+		},
+		{
+			Key: TMDBAccessTokenKey, Section: "integrations", Label: "TMDB API read access token",
+			Description: "The encrypted TMDB API Read Access Token. Saved values are never displayed again.",
+			Type:        ValueTypeString, Sensitivity: SensitivitySecret,
+		},
+		{
+			Key: TVDBEnabledKey, Section: "integrations", Label: "TVDB enabled",
+			Description: "Allow Gradeium to use the configured TVDB v4 credentials.",
+			Type:        ValueTypeBoolean, Sensitivity: SensitivityPublic, Default: json.RawMessage(`false`),
+		},
+		{
+			Key: TVDBAPIKey, Section: "integrations", Label: "TVDB API key",
+			Description: "The encrypted TVDB v4 API key. Saved values are never displayed again.",
+			Type:        ValueTypeString, Sensitivity: SensitivitySecret,
+		},
+		{
+			Key: TVDBPINKey, Section: "integrations", Label: "TVDB subscriber PIN",
+			Description: "Optional encrypted subscriber PIN for a user-supported TVDB key.",
+			Type:        ValueTypeString, Sensitivity: SensitivitySecret,
+		},
 	})
 	if err != nil {
 		panic(err)
@@ -133,7 +182,7 @@ func NewRegistryWithDefinitions(definitions []Definition) (*Registry, error) {
 		if _, exists := registry.byKey[definition.Key]; exists {
 			return nil, fmt.Errorf("duplicate setting definition %q", definition.Key)
 		}
-		if definition.Type != ValueTypeString {
+		if definition.Type != ValueTypeString && definition.Type != ValueTypeBoolean {
 			return nil, fmt.Errorf("unsupported value type for %q", definition.Key)
 		}
 		if definition.Sensitivity != SensitivityPublic && definition.Sensitivity != SensitivitySecret {
@@ -188,6 +237,15 @@ func (registry *Registry) ValidateSetting(key string, value json.RawMessage) (js
 			return nil, errors.New("encode setting value")
 		}
 		return canonical, nil
+	case ValueTypeBoolean:
+		var decoded bool
+		if err := json.Unmarshal(value, &decoded); err != nil {
+			return nil, errors.New("value must be a JSON boolean")
+		}
+		if decoded {
+			return json.RawMessage(`true`), nil
+		}
+		return json.RawMessage(`false`), nil
 	default:
 		return nil, errors.New("setting type is not supported")
 	}

@@ -258,6 +258,22 @@ func (handlers *apiHandlers) requireAdmin(next http.Handler) http.Handler {
 	})
 }
 
+func (handlers *apiHandlers) requireUser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		identity, status, err := handlers.requiredAuthentication(r)
+		if err != nil {
+			handlers.internalError(w, r, "authorize application request", err)
+			return
+		}
+		if status != 0 {
+			writeAPIError(w, status, "authentication_required", "Sign in to continue.")
+			return
+		}
+		contextWithIdentity := context.WithValue(r.Context(), requestAuthenticationKey{}, identity)
+		next.ServeHTTP(w, r.WithContext(contextWithIdentity))
+	})
+}
+
 func (handlers *apiHandlers) requireCSRF(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {

@@ -13,10 +13,15 @@ import (
 	"github.com/nzagler/gradeium/backend/internal/auth"
 	"github.com/nzagler/gradeium/backend/internal/config"
 	"github.com/nzagler/gradeium/backend/internal/database"
+	"github.com/nzagler/gradeium/backend/internal/games"
 	"github.com/nzagler/gradeium/backend/internal/httpserver"
+	"github.com/nzagler/gradeium/backend/internal/integrations"
+	"github.com/nzagler/gradeium/backend/internal/media"
+	"github.com/nzagler/gradeium/backend/internal/movies"
 	"github.com/nzagler/gradeium/backend/internal/secrets"
 	"github.com/nzagler/gradeium/backend/internal/settings"
 	"github.com/nzagler/gradeium/backend/internal/setup"
+	"github.com/nzagler/gradeium/backend/internal/tv"
 )
 
 const (
@@ -70,7 +75,12 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 
 	setupService := setup.NewService(setup.NewPostgresStore(pool))
 	settingsService := settings.NewService(registry, settings.NewPostgresStore(pool))
-	apiHandler := httpserver.NewAPI(
+	integrationService := integrations.NewService(settingsService, secretService, integrations.NewPostgresStatusStore(pool))
+	gameService := games.NewService(integrationService, games.NewPostgresStore(pool))
+	movieService := movies.NewService(integrationService, movies.NewPostgresStore(pool))
+	tvService := tv.NewService(integrationService, tv.NewPostgresStore(pool))
+	preferenceService := media.NewPreferencesService(pool)
+	apiHandler := httpserver.NewAPIWithMedia(
 		logger,
 		setupService,
 		settingsService,
@@ -78,6 +88,11 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		registry,
 		authService,
 		true,
+		integrationService,
+		gameService,
+		movieService,
+		tvService,
+		preferenceService,
 	)
 
 	webHandler := http.NotFoundHandler()

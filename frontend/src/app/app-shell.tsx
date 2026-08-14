@@ -24,12 +24,15 @@ type NavigationItem = {
   icon: LucideIcon
 }
 
-const navigation: NavigationItem[] = [
+const primaryNavigation: NavigationItem[] = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
+  { label: "Settings", path: "/settings", icon: Settings },
+]
+
+const mediaNavigation = [
   { label: "Games", path: "/games", icon: Gamepad2 },
   { label: "Movies", path: "/movies", icon: Film },
   { label: "TV Shows", path: "/tv", icon: Tv },
-  { label: "Settings", path: "/settings", icon: Settings },
 ]
 
 function Brand({ name }: { name: string }) {
@@ -49,8 +52,9 @@ function Brand({ name }: { name: string }) {
 
 function Navigation({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin: boolean }) {
   return (
-    <nav aria-label="Primary navigation" className="space-y-1">
-      {navigation.filter((item) => item.path !== "/settings" || isAdmin).map((item) => {
+    <nav aria-label="Primary navigation" className="space-y-5">
+      <div className="space-y-1">
+      {primaryNavigation.filter((item) => item.path !== "/settings" || isAdmin).slice(0,1).map((item) => {
         const Icon = item.icon
         return (
           <NavLink
@@ -70,6 +74,18 @@ function Navigation({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin:
           </NavLink>
         )
       })}
+      </div>
+      {mediaNavigation.map((item) => {
+        const Icon = item.icon
+        return <div key={item.path}>
+          <div className="flex items-center gap-3 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Icon aria-hidden="true" className="size-4" />{item.label}</div>
+          <div className="mt-1 space-y-1 pl-4">
+            <NavLink to={item.path} end onClick={onNavigate} className={({isActive})=>cn("flex min-h-9 items-center rounded-md px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",isActive&&"bg-accent font-medium text-accent-foreground")}>Library</NavLink>
+            <NavLink to={`${item.path}/backlog`} onClick={onNavigate} className={({isActive})=>cn("flex min-h-9 items-center rounded-md px-3 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",isActive&&"bg-accent font-medium text-accent-foreground")}>Backlog</NavLink>
+          </div>
+        </div>
+      })}
+      {isAdmin && <div className="space-y-1">{primaryNavigation.slice(1).map((item)=>{const Icon=item.icon;return <NavLink key={item.path} to={item.path} onClick={onNavigate} className={({isActive})=>cn("flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",isActive&&"bg-accent text-accent-foreground")}><Icon aria-hidden="true" className="size-4" />{item.label}</NavLink>})}</div>}
     </nav>
   )
 }
