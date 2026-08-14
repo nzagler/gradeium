@@ -3,7 +3,9 @@ package secrets
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 )
@@ -21,7 +23,8 @@ type Envelope struct {
 
 // Cipher encrypts secret settings with AES-256-GCM.
 type Cipher struct {
-	aead cipher.AEAD
+	aead          cipher.AEAD
+	authenticator [sha256.Size]byte
 }
 
 func NewCipher(key []byte) (*Cipher, error) {
@@ -36,7 +39,20 @@ func NewCipher(key []byte) (*Cipher, error) {
 	if err != nil {
 		return nil, errors.New("initialize authenticated encryption")
 	}
-	return &Cipher{aead: aead}, nil
+	authenticator := hmac.New(sha256.New, key)
+	_, _ = authenticator.Write([]byte("gradeium-authenticator-v1"))
+	return &Cipher{aead: aead, authenticator: [sha256.Size]byte(authenticator.Sum(nil))}, nil
+}
+
+// Authenticate derives a domain-separated, non-reversible value from the
+// persistent master key without exposing the key. Phase 3 uses this to bind a
+// CSRF token to an opaque session token.
+func (cipher *Cipher) Authenticate(label string, value []byte) [sha256.Size]byte {
+	authenticator := hmac.New(sha256.New, cipher.authenticator[:])
+	_, _ = authenticator.Write([]byte(label))
+	_, _ = authenticator.Write([]byte{0})
+	_, _ = authenticator.Write(value)
+	return [sha256.Size]byte(authenticator.Sum(nil))
 }
 
 // Encrypt creates a fresh nonce and binds the ciphertext to its setting key.
@@ -81,4 +97,10 @@ func clearBytes(value []byte) {
 	for index := range value {
 		value[index] = 0
 	}
+}
+
+// Clear removes sensitive bytes from a mutable buffer as soon as trusted
+// server-side callers are finished with them.
+func Clear(value []byte) {
+	clearBytes(value)
 }

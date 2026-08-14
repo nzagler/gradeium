@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/nzagler/gradeium/backend/internal/auth"
 	"github.com/nzagler/gradeium/backend/internal/config"
 	"github.com/nzagler/gradeium/backend/internal/database"
 	"github.com/nzagler/gradeium/backend/internal/httpserver"
@@ -55,6 +56,16 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		cancelSecurity()
 		return fmt.Errorf("validate encrypted settings: %w", err)
 	}
+	authService := auth.NewService(
+		auth.NewPostgresStore(pool),
+		secretService,
+		secretCipher,
+		auth.NewOIDCProtocol(auth.NewProviderHTTPClient()),
+	)
+	if err := authService.Cleanup(securityCtx); err != nil {
+		cancelSecurity()
+		return fmt.Errorf("clean authentication security state: %w", err)
+	}
 	cancelSecurity()
 
 	setupService := setup.NewService(setup.NewPostgresStore(pool))
@@ -65,8 +76,8 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		settingsService,
 		secretService,
 		registry,
+		authService,
 		true,
-		httpserver.Phase2AdminAuthorization,
 	)
 
 	webHandler := http.NotFoundHandler()

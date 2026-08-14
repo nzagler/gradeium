@@ -86,7 +86,7 @@ func TestPhase2PostgresFoundation(t *testing.T) {
 		t.Fatalf("persist application setting: %v", err)
 	}
 	values, err := settingsService.List(ctx)
-	if err != nil || len(values) != 1 || string(values[0].Value) != `"Persistent Gradeium"` {
+	if err != nil || len(values) != 4 || string(values[0].Value) != `"Persistent Gradeium"` {
 		t.Fatalf("persisted settings = (%#v, %v)", values, err)
 	}
 

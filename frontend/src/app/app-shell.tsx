@@ -3,9 +3,11 @@ import {
   Film,
   Gamepad2,
   LayoutDashboard,
+  LogOut,
   Menu,
   Settings,
   Tv,
+  UserRound,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -14,6 +16,7 @@ import { NavLink, Outlet } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { getSettings } from "@/api/client"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/features/auth/auth-context"
 
 type NavigationItem = {
   label: string
@@ -44,10 +47,10 @@ function Brand({ name }: { name: string }) {
   )
 }
 
-function Navigation({ onNavigate }: { onNavigate?: () => void }) {
+function Navigation({ onNavigate, isAdmin }: { onNavigate?: () => void; isAdmin: boolean }) {
   return (
     <nav aria-label="Primary navigation" className="space-y-1">
-      {navigation.map((item) => {
+      {navigation.filter((item) => item.path !== "/settings" || isAdmin).map((item) => {
         const Icon = item.icon
         return (
           <NavLink
@@ -72,8 +75,22 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppShell() {
+  const { user, signOut } = useAuth()
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
   const [instanceName, setInstanceName] = useState("Gradeium")
+  const [signingOut, setSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState<string | null>(null)
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    setSignOutError(null)
+    try {
+      await signOut()
+    } catch (error) {
+      setSignOutError(error instanceof Error ? error.message : "Sign out failed.")
+      setSigningOut(false)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -107,11 +124,34 @@ export function AppShell() {
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-sidebar p-5 text-sidebar-foreground lg:flex">
         <Brand name={instanceName} />
         <div className="mt-8 flex-1">
-          <Navigation />
+          <Navigation isAdmin={user.isAdmin} />
         </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Secure settings foundation
-        </p>
+        <div className="space-y-3 border-t pt-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted">
+              <UserRound aria-hidden="true" className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {user.displayName ?? user.email ?? "Signed in"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {user.isAdmin ? "Administrator" : "User"}
+              </p>
+            </div>
+          </div>
+          <Button
+            className="w-full justify-start"
+            type="button"
+            variant="ghost"
+            disabled={signingOut}
+            onClick={() => void handleSignOut()}
+          >
+            <LogOut aria-hidden="true" />
+            {signingOut ? "Signing out…" : "Sign out"}
+          </Button>
+          {signOutError && <p className="text-xs text-destructive">{signOutError}</p>}
+        </div>
       </aside>
 
       <header className="sticky top-0 z-30 border-b bg-background lg:hidden">
@@ -135,7 +175,25 @@ export function AppShell() {
         </div>
         {mobileNavigationOpen && (
           <div id="mobile-navigation" className="border-t p-3">
-            <Navigation onNavigate={() => setMobileNavigationOpen(false)} />
+            <Navigation
+              isAdmin={user.isAdmin}
+              onNavigate={() => setMobileNavigationOpen(false)}
+            />
+            <div className="mt-3 border-t pt-3">
+              <p className="px-3 text-sm font-medium">
+                {user.displayName ?? user.email ?? "Signed in"}
+              </p>
+              <Button
+                className="mt-2 w-full justify-start"
+                type="button"
+                variant="ghost"
+                disabled={signingOut}
+                onClick={() => void handleSignOut()}
+              >
+                <LogOut aria-hidden="true" />
+                {signingOut ? "Signing out…" : "Sign out"}
+              </Button>
+            </div>
           </div>
         )}
       </header>

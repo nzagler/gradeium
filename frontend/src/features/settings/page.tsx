@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { AuthenticationPanel } from "@/features/auth/authentication-panel"
 
 const instanceNameKey = "general.instance_name"
 
@@ -189,9 +190,10 @@ function SettingsContent({
   if (section === "system") {
     return <SystemSettings status={system} />
   }
-  const futureCopy: Record<Exclude<SectionSlug, "general" | "system">, string> = {
-    authentication:
-      "External authentication is intentionally reserved for a later phase. No login or credentials are configured here.",
+  if (section === "authentication") {
+    return <AuthenticationPanel bootstrap={false} />
+  }
+  const futureCopy: Record<Exclude<SectionSlug, "general" | "system" | "authentication">, string> = {
     integrations:
       "Integration configuration will appear only when a provider is implemented in a dedicated later phase.",
     backups:

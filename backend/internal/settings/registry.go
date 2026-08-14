@@ -9,8 +9,16 @@ import (
 )
 
 const (
-	InstanceNameKey               = "general.instance_name"
-	FutureAuthenticationSecretKey = "authentication.client_secret"
+	InstanceNameKey                     = "general.instance_name"
+	AuthenticationIssuerURLKey          = "authentication.issuer_url"
+	AuthenticationClientIDKey           = "authentication.client_id"
+	AuthenticationClientSecretKey       = "authentication.client_secret"
+	AuthenticationPublicURLKey          = "authentication.public_url"
+	AuthenticationActiveClientSecretKey = "authentication.active_client_secret"
+
+	// FutureAuthenticationSecretKey is retained as a source-compatible alias
+	// for the Phase 2 reserved key.
+	FutureAuthenticationSecretKey = AuthenticationClientSecretKey
 )
 
 // ValueType is the JSON type accepted for a setting.
@@ -38,6 +46,8 @@ type Definition struct {
 	Sensitivity Sensitivity
 	Default     json.RawMessage
 	Reserved    bool
+	Internal    bool
+	MaxLength   int
 }
 
 // Registry owns every setting key accepted by the backend.
@@ -57,15 +67,51 @@ func NewRegistry() *Registry {
 			Type:        ValueTypeString,
 			Sensitivity: SensitivityPublic,
 			Default:     json.RawMessage(`"Gradeium"`),
+			MaxLength:   80,
 		},
 		{
-			Key:         FutureAuthenticationSecretKey,
+			Key:         AuthenticationIssuerURLKey,
+			Section:     "authentication",
+			Label:       "Issuer URL",
+			Description: "The exact generic OIDC issuer used for discovery and token verification.",
+			Type:        ValueTypeString,
+			Sensitivity: SensitivityPublic,
+			MaxLength:   2048,
+		},
+		{
+			Key:         AuthenticationClientIDKey,
+			Section:     "authentication",
+			Label:       "Client ID",
+			Description: "The OIDC client identifier registered for this Gradeium instance.",
+			Type:        ValueTypeString,
+			Sensitivity: SensitivityPublic,
+			MaxLength:   512,
+		},
+		{
+			Key:         AuthenticationClientSecretKey,
 			Section:     "authentication",
 			Label:       "Authentication client secret",
-			Description: "Reserved for the future external authentication phase.",
+			Description: "The encrypted OIDC client secret. Saved values are never displayed again.",
 			Type:        ValueTypeString,
 			Sensitivity: SensitivitySecret,
-			Reserved:    true,
+		},
+		{
+			Key:         AuthenticationPublicURLKey,
+			Section:     "authentication",
+			Label:       "Public Gradeium URL",
+			Description: "The external base URL used to construct the exact OIDC callback URI.",
+			Type:        ValueTypeString,
+			Sensitivity: SensitivityPublic,
+			MaxLength:   2048,
+		},
+		{
+			Key:         AuthenticationActiveClientSecretKey,
+			Section:     "authentication",
+			Label:       "Active authentication client secret",
+			Description: "Internal last-known-good OIDC secret used by the active login configuration.",
+			Type:        ValueTypeString,
+			Sensitivity: SensitivitySecret,
+			Internal:    true,
 		},
 	})
 	if err != nil {
@@ -92,6 +138,9 @@ func NewRegistryWithDefinitions(definitions []Definition) (*Registry, error) {
 		}
 		if definition.Sensitivity != SensitivityPublic && definition.Sensitivity != SensitivitySecret {
 			return nil, fmt.Errorf("unsupported sensitivity for %q", definition.Key)
+		}
+		if definition.MaxLength < 0 {
+			return nil, fmt.Errorf("invalid maximum length for %q", definition.Key)
 		}
 		registry.ordered = append(registry.ordered, definition)
 		registry.byKey[definition.Key] = definition
@@ -127,8 +176,12 @@ func (registry *Registry) ValidateSetting(key string, value json.RawMessage) (js
 		if decoded == "" {
 			return nil, errors.New("value must not be empty")
 		}
-		if utf8.RuneCountInString(decoded) > 80 {
-			return nil, errors.New("value must be at most 80 characters")
+		maximum := definition.MaxLength
+		if maximum == 0 {
+			maximum = 80
+		}
+		if utf8.RuneCountInString(decoded) > maximum {
+			return nil, fmt.Errorf("value must be at most %d characters", maximum)
 		}
 		canonical, err := json.Marshal(decoded)
 		if err != nil {

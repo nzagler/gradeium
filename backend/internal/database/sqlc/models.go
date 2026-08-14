@@ -15,6 +15,21 @@ type AppSetting struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AuthenticationState struct {
+	Singleton             bool               `json:"singleton"`
+	ConfigurationRevision int64              `json:"configuration_revision"`
+	ValidatedRevision     pgtype.Int8        `json:"validated_revision"`
+	ValidatedAt           pgtype.Timestamptz `json:"validated_at"`
+	Activated             bool               `json:"activated"`
+	ActivatedAt           pgtype.Timestamptz `json:"activated_at"`
+	ActiveRevision        pgtype.Int8        `json:"active_revision"`
+	ActiveIssuerUrl       pgtype.Text        `json:"active_issuer_url"`
+	ActiveClientID        pgtype.Text        `json:"active_client_id"`
+	ActivePublicUrl       pgtype.Text        `json:"active_public_url"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+}
+
 type EncryptionKeyState struct {
 	Singleton      bool               `json:"singleton"`
 	KeyFingerprint []byte             `json:"key_fingerprint"`
@@ -27,6 +42,15 @@ type Entity struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type OidcLoginFlow struct {
+	StateHash        []byte             `json:"state_hash"`
+	AlgorithmVersion int16              `json:"algorithm_version"`
+	Nonce            []byte             `json:"nonce"`
+	Ciphertext       []byte             `json:"ciphertext"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type SecretSetting struct {
 	Key              string             `json:"key"`
 	AlgorithmVersion int16              `json:"algorithm_version"`
@@ -34,6 +58,16 @@ type SecretSetting struct {
 	Ciphertext       []byte             `json:"ciphertext"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Session struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	TokenHash []byte             `json:"token_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type SetupState struct {
@@ -58,4 +92,6 @@ type User struct {
 	IsAdmin         bool               `json:"is_admin"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	OidcIssuer      pgtype.Text        `json:"oidc_issuer"`
+	OidcSubject     pgtype.Text        `json:"oidc_subject"`
 }

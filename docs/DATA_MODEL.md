@@ -29,7 +29,9 @@ Purpose:
 ```text
 users
 - id UUID PRIMARY KEY DEFAULT uuidv7()
-- subject text UNIQUE NOT NULL
+- external_subject text NULL (unused Phase 2 compatibility column)
+- oidc_issuer text NULL
+- oidc_subject text NULL
 - display_name text NULL
 - email text NULL
 - is_admin boolean NOT NULL DEFAULT false
@@ -37,7 +39,36 @@ users
 - updated_at timestamptz
 ```
 
-`subject` is the stable identity from the configured OIDC provider once OIDC is active. Bootstrap/local setup identity may require a dedicated table/flow rather than overloading OIDC semantics.
+`oidc_issuer` + `oidc_subject` form the unique stable identity once OIDC is active. Email and display name are mutable verified metadata, never account identity. Both OIDC identity columns are nullable only for safe migration from the Phase 2 foundation.
+
+## Authentication state and sessions
+
+```text
+authentication_state
+- singleton boolean PRIMARY KEY
+- configuration_revision bigint
+- validated_revision bigint NULL
+- activated boolean
+- activated_at timestamptz NULL
+- active_revision bigint NULL
+- active_issuer_url text NULL
+- active_client_id text NULL
+- active_public_url text NULL
+```
+
+The active fields are a last-known-good validated snapshot. Editing a draft setting cannot alter login behavior until that exact revision validates and is atomically published. Activation never transitions back to false.
+
+```text
+sessions
+- id UUIDv7 PRIMARY KEY
+- user_id UUID REFERENCES users(id) ON DELETE CASCADE
+- token_hash bytea UNIQUE
+- expires_at timestamptz
+- revoked_at timestamptz NULL
+- created_at / updated_at
+```
+
+The raw session bearer token exists only in the HTTP-only browser cookie. Login state/nonce/PKCE material is short-lived, one-time, and encrypted in the `oidc_login_flows` table until callback consumption.
 
 ## Games
 
