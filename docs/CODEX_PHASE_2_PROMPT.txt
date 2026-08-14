@@ -1,0 +1,22 @@
+Implement Phase 2 for nzagler/gradeium.
+
+Before changing anything:
+- read AGENTS.md
+- read every file under docs/
+- follow docs/CODEX_PHASE_2.md exactly
+
+Work on a dedicated branch, preferably codex/phase-2-secure-settings.
+
+Implement only the secure core-data / first-run / Admin Settings foundation defined in CODEX_PHASE_2.md. Do not implement Games, Movies, TV Shows, ratings, IGDB, TMDB, TVDB, OIDC/Pocket ID login, Jellyfin, backup execution, or other later-phase functionality.
+
+Preserve all Phase 1 reliability guarantees.
+
+Run all available backend, frontend, Docker, Compose, persistence, security, and CI verification required by CODEX_PHASE_2.md. Fix problems you find rather than merely reporting them.
+
+When finished:
+1. review the entire diff against AGENTS.md and all docs
+2. report exactly which checks were actually run and their results
+3. commit the work clearly
+4. push the branch
+5. open a draft PR against main that closes the Phase 2 issue
+6. do not merge the PR
