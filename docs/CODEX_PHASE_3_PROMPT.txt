@@ -1,0 +1,24 @@
+Implement the Phase 3 GitHub issue in nzagler/gradeium.
+
+Before changing anything:
+- read AGENTS.md
+- read every file under docs/
+- follow docs/CODEX_PHASE_3.md exactly
+
+Work on a dedicated branch, preferably codex/phase-3-oidc-auth.
+
+Implement only generic OIDC authentication, Pocket ID compatibility through standards-based OIDC, first-admin binding, secure PostgreSQL-backed sessions, CSRF protection, real admin authorization, Authentication settings/bootstrap UI, and the persistence/tests/docs required by CODEX_PHASE_3.md.
+
+Do not implement Games, Movies, TV Shows, ratings/statuses, IGDB, TMDB, TVDB, Jellyfin, backup execution, local-password login, user-management UI, or other later-phase functionality.
+
+Preserve every Phase 1 and Phase 2 reliability/security guarantee. OIDC configuration and client secrets must be managed through Gradeium Admin Settings, never provider-specific environment variables.
+
+Run all available backend, race, PostgreSQL integration, OIDC protocol, frontend, Docker, Compose, security, persistence, and browser verification required by CODEX_PHASE_3.md. Fix problems you find rather than merely reporting them.
+
+When finished:
+1. review the entire diff against AGENTS.md and all docs
+2. report exactly which checks actually ran and their results
+3. commit the work clearly
+4. push the branch
+5. open a draft PR against main that closes the Phase 3 issue
+6. do not merge the PR
