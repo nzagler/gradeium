@@ -19,13 +19,36 @@ export function Modal({
   const panel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
     panel.current?.focus()
     function keydown(event: KeyboardEvent) {
       if (event.key === "Escape") close()
+      if (event.key !== "Tab" || !panel.current) return
+      const focusable = Array.from(
+        panel.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("hidden"))
+      if (focusable.length === 0) {
+        event.preventDefault()
+        panel.current.focus()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener("keydown", keydown)
     return () => {
       document.removeEventListener("keydown", keydown)
+      document.body.style.overflow = previousOverflow
       previous?.focus()
     }
   }, [close])

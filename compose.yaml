@@ -45,7 +45,7 @@ services:
       - no-new-privileges:true
     stop_grace_period: 30s
     healthcheck:
-      test: ["CMD", "/app/gradeium", "healthcheck", "http://127.0.0.1:8080/api/readyz"]
+      test: ["CMD", "/app/gradeium", "healthcheck", "http://127.0.0.1:8080/api/healthz"]
       interval: 10s
       timeout: 5s
       retries: 6

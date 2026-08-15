@@ -1,6 +1,6 @@
 # Gradeium
 
-Gradeium is a long-lived, self-hosted media tracker for Games, Movies, and TV Shows. The repository contains the complete Phase 5 pre-1.0 product on top of its secure Go, React, PostgreSQL, OpenID Connect, and Docker foundation.
+Gradeium is a long-lived, self-hosted media tracker for Games, Movies, and TV Shows. This repository contains the complete 1.0 release candidate on top of its secure Go, React, PostgreSQL, OpenID Connect, and Docker foundation.
 
 Games use IGDB, Movies use TMDB, and TV Shows use TVDB with a strictly verified TVDB-to-TMDB community-rating bridge. Each domain has provider search/Add, separate Library and Backlog views, personal statuses and ratings, full detail pages, provider artwork selection, and metadata refresh. TV also includes season/episode progress with Specials excluded from regular progress. The dashboard summarizes the currently persisted library, while portable backups, safe restore, automatic retention, and ratings CSV export keep user-owned data recoverable. Jellyfin, imports, custom lists, and user-management UI remain intentionally out of scope.
 
@@ -110,9 +110,13 @@ Every item has a Gradeium-owned UUIDv7 identity while provider IDs remain unique
 
 The authenticated Dashboard is a read-only view of current, locally persisted Gradeium state. Its All/Games/Movies/TV scopes show totals, current in-progress items, personal-rating and status distributions, highest-rated items, and regular-episode TV progress. It deliberately does not invent viewing history or depend on live metadata providers, so it remains useful during provider outages.
 
+## Appearance
+
+Each user can choose **Dark**, **Light**, or **System** under **Settings → Appearance**. Dark is the default for new installations, new users, and upgraded users who have not chosen a theme. System follows the browser/operating-system preference and responds when that preference changes. The selection is stored with the user's existing preferences, included in portable backups, and applied before the application renders so the default-dark entry screen does not flash light.
+
 ## Portable backups and restore
 
-Gradeium writes application-managed backups to the persistent `/backups` mount as gzip-compressed, versioned JSON. The canonical Phase 5 format is `gradeium-backup` version `1`; filenames use UTC timestamps and each completed file is validated and checksummed before atomic publication.
+Gradeium writes application-managed backups to the persistent `/backups` mount as gzip-compressed, versioned JSON. The canonical 1.0 format is `gradeium-backup` version `1`; filenames use UTC timestamps and each completed file is validated and checksummed before atomic publication. The format remains backward-compatible with Phase 5 backups: a missing theme preference restores as Dark.
 
 Portable backups contain Gradeium user identities, canonical Games/Movies/TV metadata, provider identity mappings, personal statuses and ratings/reasons, TV episode progress (including Specials), artwork pins, and user Library preferences. They never contain OIDC or provider secrets in plaintext or encrypted form, session material, CSRF tokens, database credentials, or the master key. `/config/master.key` and external-service credentials therefore remain a separate operator recovery responsibility.
 
@@ -189,6 +193,8 @@ go vet ./...
 
 Set `GRADEIUM_TEST_DATABASE_URL` to a PostgreSQL 18 URL to include isolated migration/repository integration tests. In addition to the existing authentication, security, and media coverage, tests cover the Phase 4-to-Phase 5 migration, dashboard isolation and aggregates, CSV escaping, portable backup validation and atomic publication, transactional restore and rollback, pre-restore safety backups, secret/session preservation, scheduler persistence, overdue execution, retention, and backup-operation serialization. CI supplies PostgreSQL 18.4.
 
+Phase 6 integration coverage also verifies clean installation, the Phase 5-to-1.0 migration and default-dark preference, portable theme round trips and legacy backup compatibility, plus a realistic 1,000-item personal library with several thousand TV episodes.
+
 Frontend, from `frontend/`:
 
 ```powershell
@@ -208,7 +214,7 @@ git diff --exit-code -- internal/database/sqlc
 Production image and Compose configuration, from the repository root:
 
 ```powershell
-docker build --tag gradeium:phase5 .
+docker build --tag gradeium:1.0.0 --build-arg GRADEIUM_VERSION=1.0.0 .
 docker compose config --quiet
 docker compose up --build --detach
 ```
@@ -217,9 +223,23 @@ docker compose up --build --detach
 
 The multi-stage image builds the Vite frontend and Go backend separately. The final Debian-family runtime contains the Gradeium binary, compiled web assets, CA certificates, and timezone data; it runs as UID/GID `10001`, has no Node or Go toolchain requirement, and exposes one HTTP port. The application image is read-only while `/config`, `/backups`, and PostgreSQL data remain persistent volumes.
 
+The production Docker build defaults its embedded version to `1.0.0`; release automation can override `GRADEIUM_VERSION` and `GRADEIUM_COMMIT`. Native unversioned development builds continue to identify themselves as `development`. Administrators can inspect this build information under **Settings → System**.
+
+## Upgrade and persistent-data guidance
+
+Gradeium applies forward-only database migrations during startup. Before upgrading, retain a current portable backup and protect the matching `/config/master.key`; then replace only the application image and allow startup to migrate PostgreSQL. The Phase 5-to-1.0 migration adds the theme preference without changing authentication, secrets, sessions, media state, or backup format. Do not start an older application image against a database that a newer release has migrated.
+
+For an Unraid-shaped deployment, persist these paths independently:
+
+- PostgreSQL data at `/var/lib/postgresql` in the PostgreSQL 18 container.
+- Gradeium's master key and other config files at `/config` in the application container.
+- Portable Gradeium backups at `/backups` in the application container.
+
+Map them to separate persistent shares such as `/mnt/user/appdata/gradeium/postgres`, `/mnt/user/appdata/gradeium/config`, and `/mnt/user/backups/gradeium`. Keep the application root filesystem read-only, run it as UID/GID `10001`, retain `no-new-privileges`, and expose only the application HTTP port. The image is disposable; PostgreSQL, `/config`, and `/backups` are not. A reverse proxy is optional, but OIDC deployments should normally use HTTPS and must configure Gradeium's exact public URL.
+
 ## Project documentation
 
-Read [`AGENTS.md`](./AGENTS.md) and every document in [`docs/`](./docs/) before implementation work. Phase sequencing and scope are defined in [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md), with the current milestone requirements in [`docs/CODEX_PHASE_5.md`](./docs/CODEX_PHASE_5.md). Gradeium remains pre-1.0 until the dedicated Phase 6 hardening and release work is complete.
+Read [`AGENTS.md`](./AGENTS.md) and every document in [`docs/`](./docs/) before implementation work. Phase sequencing and scope are defined in [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md), with the final pre-1.0 hardening requirements in [`docs/CODEX_PHASE_6.md`](./docs/CODEX_PHASE_6.md). The implementation is a 1.0 release candidate; tagging and publishing a release remain explicit maintainer actions.
 
 ## License
 

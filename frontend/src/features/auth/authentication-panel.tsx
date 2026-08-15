@@ -358,7 +358,7 @@ export function AuthenticationPanel({ bootstrap, onActivated }: Props) {
         </div>
 
         {message && (
-          <p className="flex items-start gap-2 text-sm text-emerald-700" aria-live="polite">
+          <p className="flex items-start gap-2 text-sm text-emerald-700 dark:text-emerald-300" aria-live="polite">
             <CheckCircle2 aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
             {message}
           </p>

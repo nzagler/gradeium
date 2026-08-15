@@ -59,6 +59,25 @@ func TestCodecRejectsTruncatedAndOversizedDocuments(t *testing.T) {
 	}
 }
 
+func TestValidateThemePreferenceAndLegacyDefault(t *testing.T) {
+	user := User{
+		ID:          "0198b0f1-0000-7000-8000-000000000001",
+		Preferences: Preferences{DefaultLibrarySort: "rating_desc", PreferredView: "grid"},
+	}
+	document := Document{
+		Format: Format, Version: FormatVersion, CreatedAt: time.Now().UTC(), ApplicationVersion: "phase5",
+		Users: []User{user}, Games: []Game{}, Movies: []Movie{}, TVShows: []TVShow{},
+		EpisodeProgress: []Progress{}, Settings: []Setting{},
+	}
+	if err := Validate(document); err != nil {
+		t.Fatalf("Validate() rejected a Phase 5 backup without a theme: %v", err)
+	}
+	document.Users[0].Preferences.Theme = "neon"
+	if err := Validate(document); err == nil || !strings.Contains(err.Error(), "preferences") {
+		t.Fatalf("Validate() invalid theme error = %v", err)
+	}
+}
+
 func TestValidateRejectsIdentityAndRatingConflicts(t *testing.T) {
 	now := time.Now().UTC()
 	userID := "0198b0f1-0000-7000-8000-000000000001"

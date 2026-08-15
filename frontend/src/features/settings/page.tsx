@@ -10,6 +10,7 @@ import {
   CircleCheck,
   KeyRound,
   LoaderCircle,
+  Moon,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -33,11 +34,13 @@ import { useAuth } from "@/features/auth/auth-context"
 import { IntegrationsPanel } from "@/features/settings/integrations-panel"
 import { LibrarySettings } from "@/features/settings/library-settings"
 import { BackupsPanel } from "@/features/settings/backups-panel"
+import { AppearanceSettings } from "@/features/settings/appearance-settings"
 
 const instanceNameKey = "general.instance_name"
 
 type SectionSlug =
   | "general"
+  | "appearance"
   | "authentication"
   | "library"
   | "integrations"
@@ -52,6 +55,7 @@ type SettingsSection = {
 
 const sections: SettingsSection[] = [
   { slug: "general", label: "General", icon: SlidersHorizontal },
+  { slug: "appearance", label: "Appearance", icon: Moon },
   { slug: "library", label: "Library", icon: SlidersHorizontal },
   { slug: "authentication", label: "Authentication", icon: KeyRound },
   { slug: "integrations", label: "Integrations", icon: Blocks },
@@ -71,10 +75,10 @@ type PageState =
 export function SettingsPage() {
   const { user } = useAuth()
   const { section } = useParams<{ section?: string }>()
-  const activeSection =
-    user.isAdmin
-      ? sections.find((candidate) => candidate.slug === section)?.slug ?? "general"
-      : "library"
+  const requestedSection = sections.find((candidate) => candidate.slug === section)?.slug
+  const activeSection = user.isAdmin
+    ? requestedSection ?? "general"
+    : requestedSection === "appearance" ? "appearance" : "library"
   const [state, setState] = useState<PageState>({ status: "loading" })
 
   async function loadSettings() {
@@ -117,7 +121,7 @@ export function SettingsPage() {
     }
   }, [user.isAdmin])
 
-  if (!user.isAdmin && section !== undefined && section !== "library") {
+  if (!user.isAdmin && section !== undefined && section !== "library" && section !== "appearance") {
     return <Navigate to="/settings/library" replace />
   }
 
@@ -140,9 +144,7 @@ export function SettingsPage() {
       <div className="mt-8 grid gap-7 lg:grid-cols-[13rem_minmax(0,1fr)]">
         <SettingsNavigation activeSection={activeSection} isAdmin={user.isAdmin} />
         <div className="min-w-0">
-          {!user.isAdmin && (
-            <SettingsContent section="library" settings={[]} />
-          )}
+          {!user.isAdmin && <SettingsContent section={activeSection} settings={[]} />}
           {user.isAdmin && state.status === "loading" && <SettingsLoading />}
           {user.isAdmin && state.status === "error" && (
             <SettingsError
@@ -172,7 +174,7 @@ function SettingsNavigation({ activeSection, isAdmin }: { activeSection: Section
       aria-label="Settings sections"
       className="flex gap-1 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0"
     >
-      {sections.filter((section) => isAdmin || section.slug === "library").map((section) => {
+      {sections.filter((section) => isAdmin || section.slug === "library" || section.slug === "appearance").map((section) => {
         const Icon = section.icon
         return (
           <NavLink
@@ -204,6 +206,9 @@ function SettingsContent({
 }) {
   if (section === "general") {
     return <GeneralSettings settings={settings} />
+  }
+  if (section === "appearance") {
+    return <AppearanceSettings />
   }
   if (section === "system" && system) {
     return <SystemSettings status={system} />
@@ -357,7 +362,7 @@ function StatusRow({
       <dd className="flex items-center gap-2 text-sm text-muted-foreground">
         <CircleCheck
           aria-hidden="true"
-          className={cn("size-4", healthy ? "text-emerald-600" : "text-destructive")}
+          className={cn("size-4", healthy ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}
         />
         {value}
       </dd>

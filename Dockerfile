@@ -8,7 +8,7 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM golang:1.26.5-bookworm AS backend-build
-ARG GRADEIUM_VERSION=development
+ARG GRADEIUM_VERSION=1.0.0
 ARG GRADEIUM_COMMIT=unknown
 WORKDIR /src/backend
 COPY backend/go.mod backend/go.sum ./

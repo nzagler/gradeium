@@ -58,8 +58,7 @@ func TestPhase4DatabaseMigratesToPhase5DashboardAndPortableBackups(t *testing.T)
 	if _, err := settingsService.Update(ctx, settings.InstanceNameKey, []byte(`"Portable Gradeium"`)); err != nil {
 		t.Fatalf("save portable instance name: %v", err)
 	}
-	preferenceService := media.NewPreferencesService(pool)
-	if _, err := preferenceService.Update(ctx, userID, media.Preferences{DefaultLibrarySort: "title_asc", PreferredView: "list"}); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO user_settings(user_id,default_library_sort,preferred_view) VALUES($1,'title_asc','list')`, userID); err != nil {
 		t.Fatalf("save portable Library defaults: %v", err)
 	}
 	secretDirectory := t.TempDir()

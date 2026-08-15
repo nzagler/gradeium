@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nzagler/gradeium/backend/internal/media"
 )
 
 type PostgresStore struct {
@@ -108,7 +109,8 @@ SELECT jsonb_build_object(
     'email', u.email,
     'preferences', jsonb_build_object(
         'defaultLibrarySort', COALESCE(us.default_library_sort, 'rating_desc'),
-        'preferredView', COALESCE(us.preferred_view, 'grid')
+        'preferredView', COALESCE(us.preferred_view, 'grid'),
+        'theme', COALESCE(us.theme, 'dark')
     )
 )
 FROM users u
@@ -312,7 +314,7 @@ func (store *PostgresStore) Restore(ctx context.Context, document Document) erro
 	}
 
 	for _, user := range document.Users {
-		if _, err := tx.Exec(ctx, `INSERT INTO user_settings(user_id, default_library_sort, preferred_view) VALUES($1,$2,$3)`, userIDs[user.ID], user.Preferences.DefaultLibrarySort, user.Preferences.PreferredView); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO user_settings(user_id, default_library_sort, preferred_view, theme) VALUES($1,$2,$3,$4)`, userIDs[user.ID], user.Preferences.DefaultLibrarySort, user.Preferences.PreferredView, media.NormalizeTheme(user.Preferences.Theme)); err != nil {
 			return fmt.Errorf("restore user preferences: %w", err)
 		}
 	}

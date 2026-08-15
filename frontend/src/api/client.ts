@@ -249,6 +249,7 @@ export type IntegrationConfiguration = {
 export type LibraryPreferences = {
   defaultLibrarySort: string
   preferredView: "grid" | "list"
+  theme: "dark" | "light" | "system"
 }
 
 export type DashboardScope = "all" | MediaDomain
