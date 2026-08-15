@@ -63,7 +63,7 @@ function TVMetadataMatch({ detail, changed, close }: { detail: MediaDetail; chan
               <div key={result.providerId} className="grid grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-2">
                 <div className="aspect-[2/3] overflow-hidden rounded bg-muted">{result.artworkUrl && <img src={result.artworkUrl} alt="" className="size-full object-cover" />}</div>
                 <div className="min-w-0"><p className="font-medium">{result.title}</p><p className="text-xs text-muted-foreground">{[result.year, result.network, `TVDB ${result.providerId}`].filter(Boolean).join(" · ")}</p></div>
-                <Button type="button" size="sm" variant={current ? "secondary" : "outline"} disabled={current || otherLocal || saving !== null} onClick={() => void choose(result)}>
+                <Button type="button" size="sm" variant="outline" disabled={current || otherLocal || saving !== null} onClick={() => void choose(result)}>
                   {saving === result.providerId ? <LoaderCircle className="animate-spin" /> : null}
                   {current ? "Current" : otherLocal ? "Already tracked" : "Use match"}
                 </Button>
