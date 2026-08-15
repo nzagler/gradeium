@@ -77,7 +77,7 @@ type apiHandlers struct {
 	preferences        *media.PreferencesService
 	backups            *backups.Service
 	dashboard          *dashboard.Service
-	jellyfinSync       *jellyfinsync.Service
+	jellyfinSync       *jellyfinsync.JobManager
 	masterKeyAvailable bool
 }
 
@@ -151,7 +151,7 @@ func NewAPIWithPhase11(
 	preferenceService *media.PreferencesService,
 	backupService *backups.Service,
 	dashboardService *dashboard.Service,
-	jellyfinSyncService *jellyfinsync.Service,
+	jellyfinSyncJobs *jellyfinsync.JobManager,
 ) http.Handler {
 	handlers := &apiHandlers{
 		logger:             logger,
@@ -167,7 +167,7 @@ func NewAPIWithPhase11(
 		preferences:        preferenceService,
 		backups:            backupService,
 		dashboard:          dashboardService,
-		jellyfinSync:       jellyfinSyncService,
+		jellyfinSync:       jellyfinSyncJobs,
 		masterKeyAvailable: masterKeyAvailable,
 	}
 
@@ -199,6 +199,7 @@ func NewAPIWithPhase11(
 			admin.Post("/integrations/{provider}/test", handlers.testIntegration)
 			if handlers.jellyfinSync != nil {
 				admin.Get("/integrations/jellyfin/libraries", handlers.jellyfinLibraries)
+				admin.Get("/integrations/jellyfin/sync", handlers.jellyfinSyncStatus)
 				admin.Post("/integrations/jellyfin/sync", handlers.syncJellyfin)
 			}
 		}

@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.1.0 (upcoming)
+## 1.1.1 (upcoming)
+
+- Fixed manual Jellyfin imports being cancelled when the initiating browser disconnects by running bounded per-user background jobs with resumable status polling.
+
+## 1.1.0
 
 - Added encrypted Jellyfin API-key configuration, library discovery/mapping, and manual add-only Movie/TV imports using TMDB and TVDB canonical provider IDs.
 - Added per-user 0–10, 0–5, -5–+5, and 0–100 personal rating scales while preserving canonical 0–100 ratings, sorting, backups, and existing values.
