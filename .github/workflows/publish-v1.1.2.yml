@@ -1,0 +1,54 @@
+name: Publish Gradeium 1.1.2
+
+on:
+  push:
+    branches:
+      - release/v1.1.2-publisher
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish v1.1.2 from verified main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: 99844e0cbc744c70943898ad688352d87b04cdaa
+          TAG: v1.1.2
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          if [ "$current" != "$TARGET_SHA" ]; then
+            echo "main moved: expected $TARGET_SHA, got $current"
+            exit 1
+          fi
+
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$TARGET_SHA" \
+              --title "Gradeium 1.1.2" \
+              --notes-file - <<'EOF'
+          ## Gradeium 1.1.2
+
+          ### Metadata
+          - Prefer English TVDB titles, overviews, and artwork when translations are available while retaining original titles.
+          - Added manual metadata rematching for Games (IGDB), Movies (TMDB), and TV Shows (TVDB).
+          - Rematching keeps the existing Gradeium item and personal state instead of requiring delete-and-readd.
+
+          ### Maintenance
+          - Added **Settings → Library → Metadata maintenance** with separate background refresh actions for Games, Movies, and TV Shows.
+          - Bulk refresh covers both Library and Backlog and reports refreshed/failed counts.
+
+          ### Mobile
+          - Show three poster/logo artwork choices per row on small mobile screens.
+          EOF
+          fi
+
+          gh workflow run docker-image.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f version=1.1.2
