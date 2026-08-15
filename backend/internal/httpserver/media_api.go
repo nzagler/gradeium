@@ -298,6 +298,10 @@ func (handlers *apiHandlers) addGame(w http.ResponseWriter, r *http.Request) {
 }
 func (handlers *apiHandlers) gameDetail(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if id == "all" {
+		handlers.gameBulkRefreshStatus(w, r)
+		return
+	}
 	if handlers.badID(w, id) {
 		return
 	}
@@ -337,12 +341,28 @@ func (handlers *apiHandlers) selectGameArtwork(w http.ResponseWriter, r *http.Re
 }
 func (handlers *apiHandlers) refreshGame(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if id == "all" {
+		handlers.startGameBulkRefresh(w, r)
+		return
+	}
 	if handlers.badID(w, id) {
 		return
 	}
 	ctx, cancel := mediaContext(r)
 	defer cancel()
-	value, err := handlers.games.Refresh(ctx, handlers.identity(r), id)
+	providerIDValue := strings.TrimSpace(r.URL.Query().Get("providerId"))
+	var value any
+	var err error
+	if providerIDValue != "" {
+		providerID, parseErr := strconv.ParseInt(providerIDValue, 10, 64)
+		if parseErr != nil || providerID <= 0 {
+			writeAPIError(w, http.StatusBadRequest, "validation_error", "Choose a valid IGDB game.")
+			return
+		}
+		value, err = handlers.games.Rematch(ctx, handlers.identity(r), id, providerID)
+	} else {
+		value, err = handlers.games.Refresh(ctx, handlers.identity(r), id)
+	}
 	if err != nil {
 		handlers.mediaError(w, r, err)
 		return
@@ -398,6 +418,10 @@ func (handlers *apiHandlers) addMovie(w http.ResponseWriter, r *http.Request) {
 }
 func (handlers *apiHandlers) movieDetail(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if id == "all" {
+		handlers.movieBulkRefreshStatus(w, r)
+		return
+	}
 	if handlers.badID(w, id) {
 		return
 	}
@@ -437,12 +461,28 @@ func (handlers *apiHandlers) selectMovieArtwork(w http.ResponseWriter, r *http.R
 }
 func (handlers *apiHandlers) refreshMovie(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if id == "all" {
+		handlers.startMovieBulkRefresh(w, r)
+		return
+	}
 	if handlers.badID(w, id) {
 		return
 	}
 	ctx, cancel := mediaContext(r)
 	defer cancel()
-	value, err := handlers.movies.Refresh(ctx, handlers.identity(r), id)
+	providerIDValue := strings.TrimSpace(r.URL.Query().Get("providerId"))
+	var value any
+	var err error
+	if providerIDValue != "" {
+		providerID, parseErr := strconv.ParseInt(providerIDValue, 10, 64)
+		if parseErr != nil || providerID <= 0 {
+			writeAPIError(w, http.StatusBadRequest, "validation_error", "Choose a valid TMDB movie.")
+			return
+		}
+		value, err = handlers.movies.Rematch(ctx, handlers.identity(r), id, providerID)
+	} else {
+		value, err = handlers.movies.Refresh(ctx, handlers.identity(r), id)
+	}
 	if err != nil {
 		handlers.mediaError(w, r, err)
 		return

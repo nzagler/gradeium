@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useState } from "react"
 import { Check, ChevronDown, Circle } from "lucide-react"
 
 import {
@@ -16,13 +16,9 @@ import { BackLink, DetailError, DetailHero, DetailLoading, InfoGrid, PeopleRow, 
 import { formatDate, formatRuntime } from "@/features/media/format"
 import { LibraryPage } from "@/features/media/library-page"
 import { useMediaDetail } from "@/features/media/use-media-detail"
-import { TVBulkRefreshControl } from "@/features/tv/bulk-refresh"
-import { TVMetadataMatchButton } from "@/features/tv/metadata-match"
 
 export function TVPage({ backlog = false }: { backlog?: boolean }) {
-  const [revision, setRevision] = useState(0)
-  const refreshed = useCallback(() => setRevision((value) => value + 1), [])
-  return <div className="space-y-3"><TVBulkRefreshControl completed={refreshed} /><LibraryPage key={revision} domain="tv" title="TV Shows" backlog={backlog} /></div>
+  return <LibraryPage domain="tv" title="TV Shows" backlog={backlog} />
 }
 
 export function AddTVPage() {
@@ -53,7 +49,7 @@ export function TVDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3"><BackLink domain="tv" label="TV Shows" /><TVMetadataMatchButton detail={detail} changed={changed} /></div>
+      <BackLink domain="tv" label="TV Shows" />
       <DetailHero
         domain="tv"
         detail={detail}

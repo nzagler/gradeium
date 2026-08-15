@@ -1,6 +1,13 @@
 # Changelog
 
-## 1.1.1 (upcoming)
+## 1.1.2 (upcoming)
+
+- Prefer English TVDB titles, overviews, and artwork when translations are available while retaining original titles.
+- Show three poster/logo artwork choices per row on small mobile screens.
+- Added Settings → Library metadata maintenance with separate background refresh actions for Games, Movies, and TV Shows, covering both Library and Backlog.
+- Added manual metadata rematching for Games (IGDB), Movies (TMDB), and TV Shows (TVDB) while preserving the existing Gradeium item and personal state.
+
+## 1.1.1
 
 - Fixed manual Jellyfin imports being cancelled when the initiating browser disconnects by running bounded per-user background jobs with resumable status polling.
 

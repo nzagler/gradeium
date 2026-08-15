@@ -1,18 +1,20 @@
 import { useState, type FormEvent } from "react"
 import { LoaderCircle, Search } from "lucide-react"
 
-import { searchProvider, type MediaDetail, type ProviderSearchResult } from "@/api/client"
+import { searchProvider, type MediaDetail, type MediaDomain, type ProviderSearchResult } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { rematchMedia } from "@/features/media/metadata-api"
 import { Modal } from "@/features/media/modal"
-import { rematchTV } from "@/features/tv/api"
 
-export function TVMetadataMatchButton({ detail, changed }: { detail: MediaDetail; changed: (value: MediaDetail) => void }) {
-  const [open, setOpen] = useState(false)
-  return <><Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>Change TVDB match</Button>{open && <TVMetadataMatch detail={detail} changed={changed} close={() => setOpen(false)} />}</>
+const providerLabels: Record<MediaDomain, string> = {
+  games: "IGDB",
+  movies: "TMDB",
+  tv: "TVDB",
 }
 
-function TVMetadataMatch({ detail, changed, close }: { detail: MediaDetail; changed: (value: MediaDetail) => void; close: () => void }) {
+export function MetadataMatchManager({ domain, detail, changed, close }: { domain: MediaDomain; detail: MediaDetail; changed: (value: MediaDetail) => void; close: () => void }) {
+  const provider = providerLabels[domain]
   const [query, setQuery] = useState(detail.title)
   const [results, setResults] = useState<ProviderSearchResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -24,8 +26,8 @@ function TVMetadataMatch({ detail, changed, close }: { detail: MediaDetail; chan
     if (query.trim().length < 2) return
     setSearching(true)
     setError(null)
-    try { setResults((await searchProvider("tv", query.trim(), 1)).results) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "TVDB search failed.") }
+    try { setResults((await searchProvider(domain, query.trim(), 1)).results) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : `${provider} search failed.`) }
     finally { setSearching(false) }
   }
 
@@ -34,27 +36,27 @@ function TVMetadataMatch({ detail, changed, close }: { detail: MediaDetail; chan
     setSaving(result.providerId)
     setError(null)
     try {
-      changed(await rematchTV(detail.id, result.providerId))
+      changed(await rematchMedia(domain, detail.id, result.providerId))
       close()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The TVDB match could not be changed.")
+      setError(cause instanceof Error ? cause.message : `The ${provider} match could not be changed.`)
     } finally {
       setSaving(null)
     }
   }
 
   return (
-    <Modal title="Change TVDB match" description="Choose which TVDB series supplies metadata for this Gradeium show. Your status, rating, date added, and episode progress stay attached to the same Gradeium entry." close={close} wide>
+    <Modal title={`Change ${provider} match`} description={`Choose which ${provider} item supplies metadata for this Gradeium entry. Your personal status, rating, date added, and supported progress stay attached to the same Gradeium item.`} close={close} wide>
       <div className="space-y-4">
         <form className="flex gap-2" onSubmit={(event) => void search(event)}>
           <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Search TVDB</span>
+            <span className="sr-only">Search {provider}</span>
             <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-            <Input autoFocus className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search TVDB" />
+            <Input autoFocus className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${provider}`} />
           </label>
           <Button type="submit" disabled={searching || query.trim().length < 2}>{searching && <LoaderCircle className="animate-spin" />}Search</Button>
         </form>
-        <p className="text-xs text-muted-foreground">Current TVDB ID: {detail.providerId}. Changing the match clears old artwork pins and refreshes metadata from the selected series.</p>
+        <p className="text-xs text-muted-foreground">Current {provider} ID: {detail.providerId}. Changing the match clears old artwork pins and refreshes metadata from the selected item.</p>
         <div className="max-h-[55vh] space-y-2 overflow-y-auto">
           {results.map((result) => {
             const current = result.providerId === detail.providerId
@@ -62,7 +64,7 @@ function TVMetadataMatch({ detail, changed, close }: { detail: MediaDetail; chan
             return (
               <div key={result.providerId} className="grid grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-2">
                 <div className="aspect-[2/3] overflow-hidden rounded bg-muted">{result.artworkUrl && <img src={result.artworkUrl} alt="" className="size-full object-cover" />}</div>
-                <div className="min-w-0"><p className="font-medium">{result.title}</p><p className="text-xs text-muted-foreground">{[result.year, result.network, `TVDB ${result.providerId}`].filter(Boolean).join(" · ")}</p></div>
+                <div className="min-w-0"><p className="font-medium">{result.title}</p><p className="text-xs text-muted-foreground">{[result.year, result.developer ?? result.director ?? result.network, `${provider} ${result.providerId}`].filter(Boolean).join(" · ")}</p></div>
                 <Button type="button" size="sm" variant="outline" disabled={current || otherLocal || saving !== null} onClick={() => void choose(result)}>
                   {saving === result.providerId ? <LoaderCircle className="animate-spin" /> : null}
                   {current ? "Current" : otherLocal ? "Already tracked" : "Use match"}
@@ -70,7 +72,7 @@ function TVMetadataMatch({ detail, changed, close }: { detail: MediaDetail; chan
               </div>
             )
           })}
-          {!searching && results.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Search TVDB to choose a different series.</p>}
+          {!searching && results.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Search {provider} to choose a different metadata match.</p>}
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       </div>

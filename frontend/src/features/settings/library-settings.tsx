@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { sortOptions } from "@/features/media/format"
 import { ratingScaleOptions } from "@/features/media/rating-scale"
+import { MetadataMaintenance } from "@/features/settings/metadata-maintenance"
 
 export function LibrarySettings() {
   const [value, setValue] = useState<LibraryPreferences | null>(null)
@@ -92,6 +93,8 @@ export function LibrarySettings() {
         )}
         {!value && error && <p role="alert" className="p-5 text-sm text-destructive">{error}</p>}
       </section>
+
+      <MetadataMaintenance />
 
       <section className="rounded-lg border bg-card p-5 shadow-xs">
         <h2 className="font-semibold">Ratings CSV</h2>
