@@ -1,0 +1,190 @@
+name: Metadata refactor helper
+
+on:
+  push:
+    branches:
+      - feature/metadata-maintenance-all-media
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feature/metadata-maintenance-all-media
+      - name: Patch media handlers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('backend/internal/httpserver/media_api.go')
+          text = path.read_text()
+
+          replacements = {
+          '''func (handlers *apiHandlers) gameDetail(w http.ResponseWriter, r *http.Request) {
+          \tid := chi.URLParam(r, "id")
+          \tif handlers.badID(w, id) {
+          \t\treturn
+          \t}
+          \tvalue, err := handlers.games.Detail(r.Context(), handlers.identity(r), id)
+          \tif err != nil {
+          \t\thandlers.mediaError(w, r, err)
+          \t\treturn
+          \t}
+          \twriteJSON(w, http.StatusOK, value)
+          }
+          ''': '''func (handlers *apiHandlers) gameDetail(w http.ResponseWriter, r *http.Request) {
+          \tid := chi.URLParam(r, "id")
+          \tif id == "all" {
+          \t\thandlers.gameBulkRefreshStatus(w, r)
+          \t\treturn
+          \t}
+          \tif handlers.badID(w, id) {
+          \t\treturn
+          \t}
+          \tvalue, err := handlers.games.Detail(r.Context(), handlers.identity(r), id)
+          \tif err != nil {
+          \t\thandlers.mediaError(w, r, err)
+          \t\treturn
+          \t}
+          \twriteJSON(w, http.StatusOK, value)
+          }
+          ''',
+          '''func (handlers *apiHandlers) refreshGame(w http.ResponseWriter, r *http.Request) {
+          \tid := chi.URLParam(r, "id")
+          \tif handlers.badID(w, id) {
+          \t\treturn
+          \t}
+          \tctx, cancel := mediaContext(r)
+          \tdefer cancel()
+          \tvalue, err := handlers.games.Refresh(ctx, handlers.identity(r), id)
+          \tif err != nil {
+          \t\thandlers.mediaError(w, r, err)
+          \t\treturn
+          \t}
+          \twriteJSON(w, http.StatusOK, value)
+          }
+          ''': '''func (handlers *apiHandlers) refreshGame(w http.ResponseWriter, r *http.Request) {
+          \tid := chi.URLParam(r, "id")
+          \tif id == "all" {
+          \t\thandlers.startGameBulkRefresh(w, r)
+          \t\treturn
+          \t}
+          \tif handlers.badID(w, id) {
+          \t\treturn
+          \t}
+          \tctx, cancel := mediaContext(r)
+          \tdefer cancel()
+          \tproviderIDValue := strings.TrimSpace(r.URL.Query().Get("providerId"))
+          \tvar value any
+          \tvar err error
+          \tif providerIDValue != "" {
+          \t\tproviderID, parseErr := strconv.ParseInt(providerIDValue, 10, 64)
+          \t\tif parseErr != nil || providerID <= 0 {
+          \t\t\twriteAPIError(w, http.StatusBadRequest, "validation_error", "Choose a valid IGDB game.")
+          \t\t\treturn
+          \t\t}
+          \t\tvalue, err = handlers.games.Rematch(ctx, handlers.identity(r), id, providerID)
+          \t} else {
+          \t\tvalue, err = handlers.games.Refresh(ctx, handlers.identity(r), id)
+          \t}
+          \tif err != nil {
+          \t\thandlers.mediaError(w, r, err)
+          \t\treturn
+          \t}
+          \twriteJSON(w, http.StatusOK, value)
+          }
+          ''',
+          '''func (handlers *apiHandlers) movieDetail(w http.ResponseWriter, r *http.Request) {
+          \tid := chi.URLParam(r, "id")
+          \tif handlers.badID(w, id) {
+          \t\treturn
+          \t}
+          \tvalue, err := handlers.movies.Detail(r.Context(), handlers.identity(r), id)
+          \tif err != nil {
+          \t\thandlers.mediaError(w, r, err)
+          \t\treturn
+          \t}
+          \twriteJSON(w, http.StatusOK, value)
+          }
+          ''': '''func (handlers *apiHandlers) movieDetail(w http.ResponseWriter, r *http.Request) {
+          \tid := chi.URLParam(r, "id")
+          \tif id == "all" {
+          \t\thandlers.movieBulkRefreshStatus(w, r)
+          \t\treturn
+          \t}
+          \tif handlers.badID(w, id) {
+          \t\treturn
+          \t}
+          \tvalue, err := handlers.movies.Detail(r.Context(), handlers.identity(r), id)
+          \tif err != nil {
+          \t\thandlers.mediaError(w, r, err)
+          \t\treturn
+          \t}
+          \twriteJSON(w, http.StatusOK, value)
+          }
+          ''',
+          '''func (handlers *apiHandlers) refreshMovie(w http.ResponseWriter, r *http.Request) {
+          \tid := chi.URLParam(r, "id")
+          \tif handlers.badID(w, id) {
+          \t\treturn
+          \t}
+          \tctx, cancel := mediaContext(r)
+          \tdefer cancel()
+          \tvalue, err := handlers.movies.Refresh(ctx, handlers.identity(r), id)
+          \tif err != nil {
+          \t\thandlers.mediaError(w, r, err)
+          \t\treturn
+          \t}
+          \twriteJSON(w, http.StatusOK, value)
+          }
+          ''': '''func (handlers *apiHandlers) refreshMovie(w http.ResponseWriter, r *http.Request) {
+          \tid := chi.URLParam(r, "id")
+          \tif id == "all" {
+          \t\thandlers.startMovieBulkRefresh(w, r)
+          \t\treturn
+          \t}
+          \tif handlers.badID(w, id) {
+          \t\treturn
+          \t}
+          \tctx, cancel := mediaContext(r)
+          \tdefer cancel()
+          \tproviderIDValue := strings.TrimSpace(r.URL.Query().Get("providerId"))
+          \tvar value any
+          \tvar err error
+          \tif providerIDValue != "" {
+          \t\tproviderID, parseErr := strconv.ParseInt(providerIDValue, 10, 64)
+          \t\tif parseErr != nil || providerID <= 0 {
+          \t\t\twriteAPIError(w, http.StatusBadRequest, "validation_error", "Choose a valid TMDB movie.")
+          \t\t\treturn
+          \t\t}
+          \t\tvalue, err = handlers.movies.Rematch(ctx, handlers.identity(r), id, providerID)
+          \t} else {
+          \t\tvalue, err = handlers.movies.Refresh(ctx, handlers.identity(r), id)
+          \t}
+          \tif err != nil {
+          \t\thandlers.mediaError(w, r, err)
+          \t\treturn
+          \t}
+          \twriteJSON(w, http.StatusOK, value)
+          }
+          ''',
+          }
+
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit('Expected media handler block was not found')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+          rm .github/workflows/metadata-refactor-helper.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: generalize metadata maintenance handlers"
+          git push origin HEAD:feature/metadata-maintenance-all-media
