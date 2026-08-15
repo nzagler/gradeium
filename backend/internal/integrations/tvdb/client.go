@@ -224,7 +224,7 @@ func (client *Client) Show(ctx context.Context, providerID int64) (Show, error) 
 		return Show{}, errors.New("invalid TVDB series ID")
 	}
 	var response envelope[showDTO]
-	if err := client.get(ctx, "/series/"+strconv.FormatInt(providerID, 10)+"/extended", url.Values{"meta": {"translations"}, "short": {"true"}}, &response); err != nil {
+	if err := client.get(ctx, "/series/"+strconv.FormatInt(providerID, 10)+"/extended", url.Values{"meta": {"translations"}}, &response); err != nil {
 		return Show{}, err
 	}
 	if response.Data.ID != providerID || strings.TrimSpace(response.Data.Name) == "" {
@@ -252,7 +252,7 @@ func (client *Client) Show(ctx context.Context, providerID int64) (Show, error) 
 			seasonIndex = len(show.Seasons) - 1
 			seasonByNumber[value.SeasonNumber] = seasonIndex
 		}
-		episode := Episode{ProviderID: value.ID, SeasonNumber: value.SeasonNumber, EpisodeNumber: value.Number, SortOrder: int32(index), Title: firstNonEmpty(value.Name, fmt.Sprintf("Episode %d", value.Number)), Overview: strings.TrimSpace(value.Overview), AirDate: parseDate(value.Aired), StillURL: safeImage(value.Image), Special: value.SeasonNumber == 0}
+		episode := Episode{ProviderID: value.ID, SeasonNumber: value.SeasonNumber, EpisodeNumber: value.Number, SortOrder: int32(index), Title: firstNonEmpty(value.Name, fmt.Sprintf("Episode %d", value.Number)), Overview: strings.TrimSpace(value.Overview), AirDate: parseDate(value.Aired), RuntimeMinutes: nil, StillURL: safeImage(value.Image), Special: value.SeasonNumber == 0}
 		if value.Runtime > 0 {
 			runtime := value.Runtime
 			episode.RuntimeMinutes = &runtime
