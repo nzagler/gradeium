@@ -17,7 +17,11 @@ import (
 	"github.com/nzagler/gradeium/backend/internal/media"
 )
 
-const defaultAPIURL = "https://api4.thetvdb.com/v4"
+const (
+	defaultAPIURL     = "https://api4.thetvdb.com/v4"
+	tvdbArtworkHost   = "artworks.thetvdb.com"
+	tvdbArtworkPrefix = "/banners/"
+)
 
 type Client struct {
 	http   *provider.Client
@@ -372,10 +376,39 @@ func hasNext(value json.RawMessage) bool {
 }
 func safeImage(value string) string {
 	parsed, err := url.Parse(strings.TrimSpace(value))
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+	if err != nil || parsed.Fragment != "" || parsed.User != nil || parsed.Port() != "" {
 		return ""
 	}
+
+	if parsed.Host != "" {
+		if !trustedArtworkHost(parsed.Hostname()) || (parsed.Scheme != "" && !strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) {
+			return ""
+		}
+	} else if parsed.Scheme != "" || parsed.Opaque != "" {
+		return ""
+	}
+
+	imagePath := "/" + strings.TrimLeft(parsed.Path, "/")
+	if !strings.HasPrefix(imagePath, tvdbArtworkPrefix) {
+		return ""
+	}
+	for _, segment := range strings.Split(imagePath, "/") {
+		if segment == "." || segment == ".." || strings.Contains(segment, `\`) {
+			return ""
+		}
+	}
+
+	parsed.Scheme = "https"
+	parsed.Host = tvdbArtworkHost
+	parsed.Path = imagePath
+	parsed.RawPath = ""
 	return parsed.String()
+}
+
+func trustedArtworkHost(host string) bool {
+	return strings.EqualFold(host, tvdbArtworkHost) ||
+		strings.EqualFold(host, "thetvdb.com") ||
+		strings.EqualFold(host, "www.thetvdb.com")
 }
 func names(values []namedDTO) []string {
 	result := make([]string, 0, len(values))

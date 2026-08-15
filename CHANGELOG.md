@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Fixed TVDB artwork paths and legacy TVDB image URLs so they resolve through the HTTPS TVDB artwork CDN.
+- Added an authenticated global quick-add menu for Games, TV Shows, and Movies.
+
 ## 1.0.0 release candidate
 
 - Completed Games, Movies, and TV Shows libraries, backlogs, details, ratings, artwork, metadata refresh, and TV episode progress.
