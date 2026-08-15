@@ -102,5 +102,6 @@ func TestSafeImageNormalizesOnlyTrustedTVDBArtwork(t *testing.T) {
 			if got := safeImage(test.value); got != test.want {
 				t.Fatalf("safeImage(%q) = %q, want %q", test.value, got, test.want)
 			}
+		})
 	}
 }
