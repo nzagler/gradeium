@@ -21,7 +21,7 @@ func TestShowUsesDefaultAiredOrderAndClassifiesSpecials(t *testing.T) {
 			if got := r.URL.Query().Get("meta"); got != "translations" {
 				t.Errorf("series extended request meta=%q, want translations", got)
 			}
-			_, _ = w.Write([]byte(`{"status":"success","data":{"id":100,"name":"Example Show","firstAired":"2020-01-01","status":{"name":"Continuing"},"genres":[{"name":"Drama"}],"artworks":[{"id":20,"type":2,"image":"/banners/v4/series/100/posters/poster.jpg","thumbnail":"http://artworks.thetvdb.com/banners/v4/series/100/posters/poster-thumb.jpg"}],"characters":[{"name":"Lead","personName":"Actor","peopleType":"Actor","image":"banners/v4/actor/200/photo/person.jpg"}],"seasons":[{"id":10,"number":0,"name":"Specials","type":{"type":"Aired Order"}},{"id":11,"number":1,"name":"Season 1","image":"//artworks.thetvdb.com/banners/v4/series/100/seasons/1.jpg","type":{"type":"Aired Order"}}]}}`))
+			_, _ = w.Write([]byte(`{"status":"success","data":{"id":100,"name":"進撃の巨人","overview":"日本語の概要","firstAired":"2020-01-01","status":{"name":"Continuing"},"genres":[{"name":"Drama"}],"translations":{"nameTranslations":[{"language":"jpn","name":"進撃の巨人"},{"language":"eng","name":"Attack on Titan"}],"overviewTranslations":[{"language":"eng","overview":"English overview"}]},"artworks":[{"id":20,"type":2,"language":"jpn","image":"/banners/v4/series/100/posters/poster-jpn.jpg"},{"id":21,"type":2,"language":"eng","image":"/banners/v4/series/100/posters/poster-eng.jpg","thumbnail":"http://artworks.thetvdb.com/banners/v4/series/100/posters/poster-eng-thumb.jpg"},{"id":22,"type":2,"language":"","image":"/banners/v4/series/100/posters/poster-neutral.jpg"}],"characters":[{"name":"Lead","personName":"Actor","peopleType":"Actor","image":"banners/v4/actor/200/photo/person.jpg"}],"seasons":[{"id":10,"number":0,"name":"Specials","type":{"type":"Aired Order"}},{"id":11,"number":1,"name":"Season 1","image":"//artworks.thetvdb.com/banners/v4/series/100/seasons/1.jpg","type":{"type":"Aired Order"}}]}}`))
 		case "/series/100/episodes/default/eng":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"episodes":[{"id":1,"seasonNumber":0,"number":1,"name":"Special"},{"id":2,"seasonNumber":1,"number":1,"name":"Pilot","runtime":45,"image":"http://www.thetvdb.com/banners/episodes/100/2.jpg"}]},"links":{"next":null}}`))
 		default:
@@ -34,14 +34,20 @@ func TestShowUsesDefaultAiredOrderAndClassifiesSpecials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if show.Title != "Attack on Titan" || show.OriginalTitle != "進撃の巨人" || show.Overview != "English overview" {
+		t.Fatalf("unexpected localized metadata: title=%q original=%q overview=%q", show.Title, show.OriginalTitle, show.Overview)
+	}
 	if len(show.Seasons) != 2 || !show.Seasons[0].Special || show.Seasons[1].Special {
 		t.Fatalf("unexpected seasons: %#v", show.Seasons)
 	}
 	if !show.Seasons[0].Episodes[0].Special || show.Seasons[1].Episodes[0].Special {
 		t.Fatalf("unexpected episode classification: %#v", show.Seasons)
 	}
-	if len(show.Artworks) != 1 || show.Artworks[0].ImageURL != "https://artworks.thetvdb.com/banners/v4/series/100/posters/poster.jpg" || show.Artworks[0].ThumbnailURL != "https://artworks.thetvdb.com/banners/v4/series/100/posters/poster-thumb.jpg" {
-		t.Fatalf("unexpected normalized artwork: %#v", show.Artworks)
+	if len(show.Artworks) != 3 || show.Artworks[0].ProviderImageID != "21" || show.Artworks[0].Language != "eng" || !show.Artworks[0].Preferred || show.Artworks[0].ImageURL != "https://artworks.thetvdb.com/banners/v4/series/100/posters/poster-eng.jpg" || show.Artworks[0].ThumbnailURL != "https://artworks.thetvdb.com/banners/v4/series/100/posters/poster-eng-thumb.jpg" {
+		t.Fatalf("unexpected English artwork preference: %#v", show.Artworks)
+	}
+	if show.Artworks[1].Language != "" || show.Artworks[1].Preferred || show.Artworks[2].Language != "jpn" || show.Artworks[2].Preferred {
+		t.Fatalf("unexpected artwork language order: %#v", show.Artworks)
 	}
 	if len(show.Cast) != 1 || show.Cast[0].ImageURL != "https://artworks.thetvdb.com/banners/v4/actor/200/photo/person.jpg" {
 		t.Fatalf("unexpected normalized cast image: %#v", show.Cast)
