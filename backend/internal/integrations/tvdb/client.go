@@ -252,7 +252,7 @@ func (client *Client) Show(ctx context.Context, providerID int64) (Show, error) 
 			seasonIndex = len(show.Seasons) - 1
 			seasonByNumber[value.SeasonNumber] = seasonIndex
 		}
-		episode := Episode{ProviderID: value.ID, SeasonNumber: value.SeasonNumber, EpisodeNumber: value.Number, SortOrder: int32(index), Title: firstNonEmpty(value.Name, fmt.Sprintf("Episode %d", value.Number)), Overview: strings.TrimSpace(value.Overview), AirDate: parseDate(value.Aired), RuntimeMinutes: nil, StillURL: safeImage(value.Image), Special: value.SeasonNumber == 0}
+		episode := Episode{ProviderID: value.ID, SeasonNumber: value.SeasonNumber, EpisodeNumber: value.Number, SortOrder: int32(index), Title: firstNonEmpty(value.Name, fmt.Sprintf("Episode %d", value.Number)), Overview: strings.TrimSpace(value.Overview), AirDate: parseDate(value.Aired), StillURL: safeImage(value.Image), Special: value.SeasonNumber == 0}
 		if value.Runtime > 0 {
 			runtime := value.Runtime
 			episode.RuntimeMinutes = &runtime
