@@ -23,6 +23,8 @@ const (
 	searchLimit     = 20
 )
 
+var ErrNotTrackable = errors.New("this IGDB record is an edition or non-independent game type and cannot be tracked independently")
+
 type Client struct {
 	http         *provider.Client
 	clientID     string
@@ -177,7 +179,7 @@ func (client *Client) Search(ctx context.Context, query string, page int) (Searc
 		return SearchPage{}, errors.New("search page is out of range")
 	}
 	statement := fmt.Sprintf(
-		"search %s; fields id,name,first_release_date,game_type.type,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null; limit %d; offset %d;",
+		"search %s; fields id,name,first_release_date,game_type.type,version_parent,cover.image_id,involved_companies.developer,involved_companies.company.name; where version_parent = null; limit %d; offset %d;",
 		quoteQuery(query), searchLimit, (page-1)*searchLimit,
 	)
 	var rows []gameDTO
@@ -186,7 +188,7 @@ func (client *Client) Search(ctx context.Context, query string, page int) (Searc
 	}
 	results := make([]SearchResult, 0, len(rows))
 	for _, row := range rows {
-		if !TrackableGameType(row.GameType.Type) || row.ID <= 0 || strings.TrimSpace(row.Name) == "" {
+		if !independentlyTrackable(row) || row.ID <= 0 || strings.TrimSpace(row.Name) == "" {
 			continue
 		}
 		developer, _ := companies(row.Companies)
@@ -223,8 +225,8 @@ func (client *Client) Game(ctx context.Context, providerID int64) (Game, error) 
 		return Game{}, errors.New("IGDB game was not found")
 	}
 	row := rows[0]
-	if !TrackableGameType(row.GameType.Type) || hasReference(row.ParentGame) || hasReference(row.VersionParent) {
-		return Game{}, errors.New("this IGDB record is additional content or an edition and cannot be tracked independently")
+	if !independentlyTrackable(row) {
+		return Game{}, ErrNotTrackable
 	}
 	developer, publisher := companies(row.Companies)
 	game := Game{
@@ -317,11 +319,15 @@ func (client *Client) accessToken(ctx context.Context) (string, error) {
 func TrackableGameType(value string) bool {
 	value = normalizeType(value)
 	switch value {
-	case "main game", "standalone expansion", "remake", "remaster", "expanded game", "fork", "episode":
+	case "main game", "standalone expansion", "remake", "remaster", "fork", "episode":
 		return true
 	default:
 		return false
 	}
+}
+
+func independentlyTrackable(game gameDTO) bool {
+	return TrackableGameType(game.GameType.Type) && !hasReference(game.VersionParent)
 }
 
 func normalizeType(value string) string {

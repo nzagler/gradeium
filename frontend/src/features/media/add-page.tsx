@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, Check, LoaderCircle, Search } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { ArrowLeft, Check, LoaderCircle, Search, X } from "lucide-react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 
 import { addMedia, searchProvider, type MediaDomain, type MediaStatus, type ProviderSearchResult } from "@/api/client"
@@ -19,17 +19,24 @@ export function AddPage({ domain, title }: { domain: MediaDomain; title: string 
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<ProviderSearchResult | null>(null)
   const [added, setAdded] = useState<{ id: string; title: string } | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const searchGeneration = useRef(0)
 
   const search = useCallback(async (value: string, nextPage = 1) => {
+    const generation = ++searchGeneration.current
     setLoading(true); setError(null)
     try {
       const response = await searchProvider(domain, value, nextPage)
+      if (generation !== searchGeneration.current) return
       setResults((current) => nextPage === 1 ? response.results : [...current, ...response.results])
       setPage(response.page); setHasMore(response.hasMore)
     } catch (cause) {
+      if (generation !== searchGeneration.current) return
       setError(cause instanceof Error ? cause.message : "The provider search failed.")
       if (nextPage === 1) setResults([])
-    } finally { setLoading(false) }
+    } finally {
+      if (generation === searchGeneration.current) setLoading(false)
+    }
   }, [domain])
   useEffect(() => {
     const value = query.trim()
@@ -38,10 +45,21 @@ export function AddPage({ domain, title }: { domain: MediaDomain; title: string 
     return () => window.clearTimeout(timer)
   }, [query, search])
 
+  function clearSearch() {
+    searchGeneration.current++
+    setQuery("")
+    setResults([])
+    setError(null)
+    setHasMore(false)
+    setPage(1)
+    setLoading(false)
+    inputRef.current?.focus()
+  }
+
   return (
     <section className="mx-auto max-w-4xl space-y-6">
       <header><Button asChild variant="ghost" className="-ml-3"><Link to={`/${domain}`}><ArrowLeft />Back to {title}</Link></Button><h1 className="mt-3 text-2xl font-semibold">Add {title === "TV Shows" ? "a TV show" : title === "Movies" ? "a movie" : "a game"}</h1><p className="mt-1 text-sm text-muted-foreground">Search {domain === "games" ? "IGDB" : domain === "movies" ? "TMDB" : "TVDB"}. Nothing is saved until you confirm an initial status.</p></header>
-      <label className="relative block"><span className="sr-only">Search provider</span><Search className="pointer-events-none absolute left-3 top-3 size-5 text-muted-foreground" /><Input className="h-11 pl-11 text-base" autoFocus value={query} onChange={(event)=>{const value=event.target.value;setQuery(value);if(value.trim().length<2){setResults([]);setError(null);setHasMore(false)}}} placeholder={`Search for ${title.toLowerCase()}…`} /></label>
+      <label className="relative block"><span className="sr-only">Search provider</span><Search className="pointer-events-none absolute left-3 top-3 size-5 text-muted-foreground" /><Input ref={inputRef} className="h-11 px-11 text-base" autoFocus value={query} onChange={(event)=>{const value=event.target.value;setQuery(value);if(value.trim().length<2){setResults([]);setError(null);setHasMore(false)}}} placeholder={`Search for ${title.toLowerCase()}…`} />{query!==""&&<button type="button" aria-label="Clear search" className="absolute right-1.5 top-1.5 grid size-8 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring" onClick={clearSearch}><X aria-hidden="true" className="size-4" /></button>}</label>
       {query.trim().length<2&&<p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Enter at least two characters to search.</p>}
       {loading&&page===1&&<div className="space-y-3">{Array.from({length:5},(_,index)=><div key={index} className="h-24 animate-pulse rounded-lg bg-muted" />)}</div>}
       {error&&<div role="alert" className="rounded-lg border bg-card p-5"><p className="text-sm">{error}</p><Button className="mt-3" type="button" variant="outline" onClick={()=>void search(query.trim())}>Try again</Button></div>}

@@ -148,6 +148,9 @@ func (service *Service) Add(ctx context.Context, userID string, providerID int64
 	}
 	game, err := client.Game(ctx, providerID)
 	if err != nil {
+		if errors.Is(err, igdb.ErrNotTrackable) {
+			return Detail{}, media.ValidationError(err.Error())
+		}
 		return Detail{}, media.ProviderError("igdb")
 	}
 	detail, err := service.store.Add(ctx, userID, game, state.Status)
