@@ -36,7 +36,7 @@ func NewClient(apiKey, pin string) *Client {
 	return NewClientWithEndpoint(provider.NewClient(), apiKey, pin, defaultAPIURL)
 }
 
-func NewClientWithEndpoint(httpClient *provider.Client, apiKey, pin, apiURL string) *Client {
+func NewClientWithEndpoint(httpClient *provider.Client, apiKey, pin string, apiURL string) *Client {
 	return &Client{http: httpClient, apiKey: strings.TrimSpace(apiKey), pin: strings.TrimSpace(pin), apiURL: strings.TrimRight(apiURL, "/")}
 }
 
@@ -135,6 +135,15 @@ type artworkDTO struct {
 	Height    int32   `json:"height"`
 	Score     float64 `json:"score"`
 }
+type translationDTO struct {
+	Language string `json:"language"`
+	Name     string `json:"name"`
+	Overview string `json:"overview"`
+}
+type translationExtendedDTO struct {
+	NameTranslations     []translationDTO `json:"nameTranslations"`
+	OverviewTranslations []translationDTO `json:"overviewTranslations"`
+}
 type characterDTO struct {
 	Name       string `json:"name"`
 	PersonName string `json:"personName"`
@@ -155,19 +164,20 @@ type seasonDTO struct {
 	Type       seasonTypeDTO `json:"type"`
 }
 type showDTO struct {
-	ID              int64          `json:"id"`
-	Name            string         `json:"name"`
-	Overview        string         `json:"overview"`
-	FirstAired      string         `json:"firstAired"`
-	Year            string         `json:"year"`
-	Status          statusDTO      `json:"status"`
-	OriginalNetwork *namedDTO      `json:"originalNetwork"`
-	LatestNetwork   *namedDTO      `json:"latestNetwork"`
-	Genres          []namedDTO     `json:"genres"`
-	Companies       []companyDTO   `json:"companies"`
-	Artworks        []artworkDTO   `json:"artworks"`
-	Characters      []characterDTO `json:"characters"`
-	Seasons         []seasonDTO    `json:"seasons"`
+	ID              int64                  `json:"id"`
+	Name            string                 `json:"name"`
+	Overview        string                 `json:"overview"`
+	FirstAired      string                 `json:"firstAired"`
+	Year            string                 `json:"year"`
+	Status          statusDTO              `json:"status"`
+	OriginalNetwork *namedDTO              `json:"originalNetwork"`
+	LatestNetwork   *namedDTO              `json:"latestNetwork"`
+	Genres          []namedDTO             `json:"genres"`
+	Companies       []companyDTO           `json:"companies"`
+	Artworks        []artworkDTO           `json:"artworks"`
+	Characters      []characterDTO         `json:"characters"`
+	Seasons         []seasonDTO            `json:"seasons"`
+	Translations    translationExtendedDTO `json:"translations"`
 }
 type episodeDTO struct {
 	ID             int64  `json:"id"`
@@ -231,7 +241,12 @@ func (client *Client) Show(ctx context.Context, providerID int64) (Show, error) 
 		return Show{}, errors.New("TVDB returned invalid series data")
 	}
 	row := response.Data
-	show := Show{ProviderID: row.ID, Title: row.Name, Overview: strings.TrimSpace(row.Overview), FirstAired: parseDate(row.FirstAired), Year: parseYear(firstNonEmpty(row.Year, row.FirstAired)), ProviderStatus: row.Status.Name, Network: network(row), Genres: names(row.Genres), Cast: cast(row.Characters), KeyPeople: []Person{}, Artworks: artworks(row.Artworks), Seasons: []Season{}}
+	title := firstNonEmpty(englishName(row.Translations), row.Name)
+	originalTitle := strings.TrimSpace(row.Name)
+	if strings.EqualFold(title, originalTitle) {
+		originalTitle = ""
+	}
+	show := Show{ProviderID: row.ID, Title: title, OriginalTitle: originalTitle, Overview: firstNonEmpty(englishOverview(row.Translations), row.Overview), FirstAired: parseDate(row.FirstAired), Year: parseYear(firstNonEmpty(row.Year, row.FirstAired)), ProviderStatus: row.Status.Name, Network: network(row), Genres: names(row.Genres), Cast: cast(row.Characters), KeyPeople: []Person{}, Artworks: artworks(row.Artworks), Seasons: []Season{}}
 	episodes, err := client.episodes(ctx, providerID)
 	if err != nil {
 		return Show{}, err
@@ -351,6 +366,22 @@ func firstNonEmpty(values ...string) string {
 	}
 	return ""
 }
+func englishName(value translationExtendedDTO) string {
+	for _, translation := range value.NameTranslations {
+		if strings.EqualFold(strings.TrimSpace(translation.Language), "eng") {
+			return strings.TrimSpace(translation.Name)
+		}
+	}
+	return ""
+}
+func englishOverview(value translationExtendedDTO) string {
+	for _, translation := range value.OverviewTranslations {
+		if strings.EqualFold(strings.TrimSpace(translation.Language), "eng") {
+			return strings.TrimSpace(translation.Overview)
+		}
+	}
+	return ""
+}
 func parseDate(value string) *time.Time {
 	if len(value) < 10 {
 		return nil
@@ -455,6 +486,9 @@ func cast(values []characterDTO) []Person {
 	return result
 }
 func artworks(values []artworkDTO) []media.Artwork {
+	sort.SliceStable(values, func(i, j int) bool {
+		return artworkLanguageRank(values[i].Language) < artworkLanguageRank(values[j].Language)
+	})
 	result := make([]media.Artwork, 0, len(values))
 	preferred := map[string]bool{}
 	for _, value := range values {
@@ -483,4 +517,15 @@ func artworks(values []artworkDTO) []media.Artwork {
 		result = append(result, item)
 	}
 	return result
+}
+
+func artworkLanguageRank(value string) int {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "eng", "en":
+		return 0
+	case "":
+		return 1
+	default:
+		return 2
+	}
 }
