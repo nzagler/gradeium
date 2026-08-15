@@ -103,6 +103,12 @@
   color: oklch(0.879 0.169 91.605);
 }
 
+@layer components {
+  .app-shell:has([data-add-success]) .quick-add {
+    bottom: 7rem;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

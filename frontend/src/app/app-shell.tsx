@@ -15,6 +15,7 @@ import { NavLink, Outlet } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { getLibraryPreferences, getSettings } from "@/api/client"
+import { QuickAdd } from "@/app/quick-add"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/features/auth/auth-context"
 import { useTheme } from "@/features/theme/theme-context"
@@ -145,7 +146,7 @@ export function AppShell() {
   }, [setThemePreference])
 
   return (
-    <div className="min-h-svh bg-background text-foreground">
+    <div className="app-shell min-h-svh bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-sidebar p-5 text-sidebar-foreground lg:flex">
         <Brand name={instanceName} />
         <div className="mt-8 flex-1">
@@ -227,6 +228,7 @@ export function AppShell() {
           <Outlet />
         </div>
       </main>
+      <QuickAdd />
     </div>
   )
 }
