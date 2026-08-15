@@ -2,6 +2,7 @@ package igdb
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,15 +13,55 @@ import (
 )
 
 func TestTrackableGameTypeNormalization(t *testing.T) {
-	for _, value := range []string{"Main Game", "standalone_expansion", "Remake", "remaster", "Expanded Game"} {
+	for _, value := range []string{"Main Game", "standalone_expansion", "Remake", "remaster", "Fork", "Episode"} {
 		if !TrackableGameType(value) {
 			t.Fatalf("expected %q to be trackable", value)
 		}
 	}
-	for _, value := range []string{"DLC Addon", "Expansion", "Bundle", "Port", "Pack", "Update"} {
+	for _, value := range []string{"Expanded Game", "DLC Addon", "Expansion", "Bundle", "Port", "Pack", "Update"} {
 		if TrackableGameType(value) {
 			t.Fatalf("expected %q to be nested/non-trackable", value)
 		}
+	}
+}
+
+func TestGameEligibilityUsesVersionParentNotParentGame(t *testing.T) {
+	tests := []struct {
+		name       string
+		gameType   string
+		references string
+		wantError  bool
+	}{
+		{name: "main game", gameType: "Main Game"},
+		{name: "standalone expansion with parent game", gameType: "Standalone Expansion", references: `,"parent_game":{"id":1}`},
+		{name: "remake with parent game", gameType: "Remake", references: `,"parent_game":{"id":1}`},
+		{name: "version parent edition", gameType: "Main Game", references: `,"version_parent":{"id":1}`, wantError: true},
+		{name: "expanded game", gameType: "Expanded Game", wantError: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/token":
+					_, _ = w.Write([]byte(`{"access_token":"token","expires_in":3600}`))
+				case "/games":
+					_, _ = w.Write([]byte(`[{"id":42,"name":"Example","game_type":{"type":"` + test.gameType + `"}` + test.references + `}]`))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			client := NewClientWithEndpoints(provider.NewClient(), "id", "secret", server.URL+"/token", server.URL)
+			_, err := client.Game(context.Background(), 42)
+			if test.wantError && !errors.Is(err, ErrNotTrackable) {
+				t.Fatalf("Game() error = %v, want ErrNotTrackable", err)
+			}
+			if !test.wantError && err != nil {
+				t.Fatalf("Game() error = %v, want nil", err)
+			}
+		})
 	}
 }
 
