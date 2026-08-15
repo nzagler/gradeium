@@ -43,6 +43,7 @@ type User struct {
 type Preferences struct {
 	DefaultLibrarySort string `json:"defaultLibrarySort"`
 	PreferredView      string `json:"preferredView"`
+	Theme              string `json:"theme"`
 }
 
 type Setting struct {

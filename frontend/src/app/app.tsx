@@ -8,12 +8,14 @@ import { NotFoundPage } from "@/features/not-found/page"
 import { SettingsPage } from "@/features/settings/page"
 import { SetupGate } from "@/features/setup/setup-gate"
 import { AddTVPage, TVDetailPage, TVPage } from "@/features/tv/page"
+import { ThemeProvider } from "@/features/theme/theme-provider"
 
 export function App() {
   return (
-    <SetupGate>
-      <Routes>
-        <Route element={<AppShell />}>
+    <ThemeProvider>
+      <SetupGate>
+        <Routes>
+          <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="games" element={<GamesPage />} />
           <Route path="games/backlog" element={<GamesPage backlog />} />
@@ -29,8 +31,9 @@ export function App() {
           <Route path="tv/:id" element={<TVDetailPage />} />
           <Route path="settings/:section?" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
-    </SetupGate>
+          </Route>
+        </Routes>
+      </SetupGate>
+    </ThemeProvider>
   )
 }

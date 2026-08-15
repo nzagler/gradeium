@@ -52,3 +52,17 @@ func TestValidateSearchAndProviderID(t *testing.T) {
 		t.Fatal("ValidateProviderID accepted zero")
 	}
 }
+
+func TestThemePreference(t *testing.T) {
+	for _, theme := range []string{"dark", "light", "system"} {
+		if !ValidTheme(theme) {
+			t.Fatalf("ValidTheme(%q) = false", theme)
+		}
+	}
+	if ValidTheme("provider") {
+		t.Fatal("ValidTheme accepted an unsupported value")
+	}
+	if got := NormalizeTheme(""); got != "dark" {
+		t.Fatalf("NormalizeTheme(\"\") = %q, want dark", got)
+	}
+}

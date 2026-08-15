@@ -367,6 +367,7 @@ type UserSetting struct {
 	PreferredView      string             `json:"preferred_view"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	Theme              string             `json:"theme"`
 }
 
 type UserTvShow struct {

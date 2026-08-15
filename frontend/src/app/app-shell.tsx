@@ -14,9 +14,10 @@ import {
 import { NavLink, Outlet } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
-import { getSettings } from "@/api/client"
+import { getLibraryPreferences, getSettings } from "@/api/client"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/features/auth/auth-context"
+import { useTheme } from "@/features/theme/theme-context"
 
 type NavigationItem = {
   label: string
@@ -92,6 +93,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell() {
   const { user, signOut } = useAuth()
+  const { setPreference: setThemePreference } = useTheme()
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false)
   const [instanceName, setInstanceName] = useState("Gradeium")
   const [signingOut, setSigningOut] = useState(false)
@@ -110,6 +112,13 @@ export function AppShell() {
 
   useEffect(() => {
     let active = true
+    void getLibraryPreferences()
+      .then((preferences) => {
+        if (active) setThemePreference(preferences.theme)
+      })
+      .catch(() => {
+        // Default-dark rendering remains usable while preferences retry.
+      })
     void getSettings()
       .then((response) => {
         const setting = response.settings.find(
@@ -133,7 +142,7 @@ export function AppShell() {
       active = false
       window.removeEventListener("gradeium:instance-name", updateInstanceName)
     }
-  }, [])
+  }, [setThemePreference])
 
   return (
     <div className="min-h-svh bg-background text-foreground">
