@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react"
 import { LoaderCircle, Search } from "lucide-react"
 
-import { refreshMedia, searchProvider, type MediaDetail, type MediaDomain, type ProviderSearchResult } from "@/api/client"
+import { searchProvider, type MediaDetail, type MediaDomain, type ProviderSearchResult } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { rematchMedia } from "@/features/media/metadata-api"
 import { Modal } from "@/features/media/modal"
 
 const providerLabels: Record<MediaDomain, string> = {
@@ -35,7 +36,7 @@ export function MetadataMatchManager({ domain, detail, changed, close }: { domai
     setSaving(result.providerId)
     setError(null)
     try {
-      changed(await refreshMedia(domain, detail.id, result.providerId))
+      changed(await rematchMedia(domain, detail.id, result.providerId))
       close()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : `The ${provider} match could not be changed.`)
