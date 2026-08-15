@@ -70,8 +70,13 @@ func TestValidateThemePreferenceAndLegacyDefault(t *testing.T) {
 		EpisodeProgress: []Progress{}, Settings: []Setting{},
 	}
 	if err := Validate(document); err != nil {
-		t.Fatalf("Validate() rejected a Phase 5 backup without a theme: %v", err)
+		t.Fatalf("Validate() rejected an older backup without appearance or rating-scale preferences: %v", err)
 	}
+	document.Users[0].Preferences.RatingScale = "stars"
+	if err := Validate(document); err == nil || !strings.Contains(err.Error(), "preferences") {
+		t.Fatalf("Validate() invalid rating scale error = %v", err)
+	}
+	document.Users[0].Preferences.RatingScale = "1_10"
 	document.Users[0].Preferences.Theme = "neon"
 	if err := Validate(document); err == nil || !strings.Contains(err.Error(), "preferences") {
 		t.Fatalf("Validate() invalid theme error = %v", err)

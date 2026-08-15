@@ -17,6 +17,7 @@ import (
 	"github.com/nzagler/gradeium/backend/internal/dashboard"
 	"github.com/nzagler/gradeium/backend/internal/games"
 	"github.com/nzagler/gradeium/backend/internal/integrations"
+	"github.com/nzagler/gradeium/backend/internal/jellyfinsync"
 	"github.com/nzagler/gradeium/backend/internal/media"
 	"github.com/nzagler/gradeium/backend/internal/movies"
 	"github.com/nzagler/gradeium/backend/internal/settings"
@@ -76,6 +77,7 @@ type apiHandlers struct {
 	preferences        *media.PreferencesService
 	backups            *backups.Service
 	dashboard          *dashboard.Service
+	jellyfinSync       *jellyfinsync.Service
 	masterKeyAvailable bool
 }
 
@@ -129,6 +131,28 @@ func NewAPIWithPhase5(
 	backupService *backups.Service,
 	dashboardService *dashboard.Service,
 ) http.Handler {
+	return NewAPIWithPhase11(logger, setupService, settingsService, secretService, registry, authentication, masterKeyAvailable, integrationService, gameService, movieService, tvService, preferenceService, backupService, dashboardService, nil)
+}
+
+// NewAPIWithPhase11 adds manual Jellyfin discovery/import while preserving the
+// earlier constructors used by focused foundation tests.
+func NewAPIWithPhase11(
+	logger *slog.Logger,
+	setupService SetupService,
+	settingsService SettingsService,
+	secretService SecretService,
+	registry *settings.Registry,
+	authentication AuthenticationService,
+	masterKeyAvailable bool,
+	integrationService *integrations.Service,
+	gameService *games.Service,
+	movieService *movies.Service,
+	tvService *tv.Service,
+	preferenceService *media.PreferencesService,
+	backupService *backups.Service,
+	dashboardService *dashboard.Service,
+	jellyfinSyncService *jellyfinsync.Service,
+) http.Handler {
 	handlers := &apiHandlers{
 		logger:             logger,
 		setup:              setupService,
@@ -143,6 +167,7 @@ func NewAPIWithPhase5(
 		preferences:        preferenceService,
 		backups:            backupService,
 		dashboard:          dashboardService,
+		jellyfinSync:       jellyfinSyncService,
 		masterKeyAvailable: masterKeyAvailable,
 	}
 
@@ -172,6 +197,10 @@ func NewAPIWithPhase5(
 			admin.Get("/integrations", handlers.listIntegrations)
 			admin.Put("/integrations/{provider}", handlers.configureIntegration)
 			admin.Post("/integrations/{provider}/test", handlers.testIntegration)
+			if handlers.jellyfinSync != nil {
+				admin.Get("/integrations/jellyfin/libraries", handlers.jellyfinLibraries)
+				admin.Post("/integrations/jellyfin/sync", handlers.syncJellyfin)
+			}
 		}
 		if handlers.backups != nil {
 			handlers.mountBackupRoutes(admin)

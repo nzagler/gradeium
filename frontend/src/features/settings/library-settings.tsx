@@ -9,6 +9,7 @@ import {
 } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { sortOptions } from "@/features/media/format"
+import { ratingScaleOptions } from "@/features/media/rating-scale"
 
 export function LibrarySettings() {
   const [value, setValue] = useState<LibraryPreferences | null>(null)
@@ -37,7 +38,9 @@ export function LibrarySettings() {
     setError(null)
     setMessage(null)
     try {
-      setValue(await updateLibraryPreferences(value))
+      const saved = await updateLibraryPreferences(value)
+      setValue(saved)
+      window.dispatchEvent(new CustomEvent("gradeium:rating-scale", { detail: saved.ratingScale }))
       setMessage("Library defaults saved.")
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Preferences could not be saved.")
@@ -66,6 +69,13 @@ export function LibrarySettings() {
               </select>
             </div>
             <div>
+              <label htmlFor="personal-rating-scale" className="text-sm font-medium">Personal rating scale</label>
+              <select id="personal-rating-scale" className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm" value={value.ratingScale} onChange={(event) => setValue({ ...value, ratingScale: event.target.value as LibraryPreferences["ratingScale"] })}>
+                {ratingScaleOptions.map((option) => <option key={option.value} value={option.value}>{option.label} (for example {option.example})</option>)}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">Changing the scale reinterprets display only. Stored ratings and sorting remain unchanged.</p>
+            </div>
+            <div>
               <label htmlFor="preferred-library-view" className="text-sm font-medium">Preferred view</label>
               <select id="preferred-library-view" className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm" value={value.preferredView} onChange={(event) => setValue({ ...value, preferredView: event.target.value as "grid" | "list" })}>
                 <option value="grid">Artwork grid</option>
@@ -85,7 +95,7 @@ export function LibrarySettings() {
 
       <section className="rounded-lg border bg-card p-5 shadow-xs">
         <h2 className="font-semibold">Ratings CSV</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Download a UTF-8 CSV of your current rated Library items, including rating reasons.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Download a UTF-8 CSV with canonical 0–100 values, ratings on your selected display scale, and rating reasons.</p>
         <Button
           className="mt-4"
           type="button"

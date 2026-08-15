@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 (upcoming)
+
+- Added encrypted Jellyfin API-key configuration, library discovery/mapping, and manual add-only Movie/TV imports using TMDB and TVDB canonical provider IDs.
+- Added per-user 1–10, 0–5, -5–+5, and 0–100 personal rating scales while preserving canonical 0–100 ratings, sorting, backups, and existing values.
+- Replaced browser number controls with a controlled, keyboard- and mobile-friendly rolling-digit rating editor.
+
 ## 1.0.1
 
 - Fixed TVDB artwork paths and legacy TVDB image URLs so they resolve through the HTTPS TVDB artwork CDN.
@@ -13,4 +19,4 @@
 - Added per-user Dark, Light, and System themes. Dark is the fallback for new and existing users without a stored preference and is applied before first render.
 - Hardened PostgreSQL 18 migrations and recovery, provider outage isolation, backup disaster recovery, Docker/Compose runtime behavior, accessibility, responsive layouts, and production build information.
 
-Post-1.0 ideas such as Jellyfin, imports, custom lists, social/history features, public APIs, and user-management UI are intentionally not included.
+Other post-1.0 ideas such as custom lists, social/history features, public APIs, and user-management UI are intentionally not included.

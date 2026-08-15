@@ -110,7 +110,8 @@ SELECT jsonb_build_object(
     'preferences', jsonb_build_object(
         'defaultLibrarySort', COALESCE(us.default_library_sort, 'rating_desc'),
         'preferredView', COALESCE(us.preferred_view, 'grid'),
-        'theme', COALESCE(us.theme, 'dark')
+        'theme', COALESCE(us.theme, 'dark'),
+        'ratingScale', COALESCE(us.rating_scale, '1_10')
     )
 )
 FROM users u
@@ -314,7 +315,7 @@ func (store *PostgresStore) Restore(ctx context.Context, document Document) erro
 	}
 
 	for _, user := range document.Users {
-		if _, err := tx.Exec(ctx, `INSERT INTO user_settings(user_id, default_library_sort, preferred_view, theme) VALUES($1,$2,$3,$4)`, userIDs[user.ID], user.Preferences.DefaultLibrarySort, user.Preferences.PreferredView, media.NormalizeTheme(user.Preferences.Theme)); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO user_settings(user_id, default_library_sort, preferred_view, theme, rating_scale) VALUES($1,$2,$3,$4,$5)`, userIDs[user.ID], user.Preferences.DefaultLibrarySort, user.Preferences.PreferredView, media.NormalizeTheme(user.Preferences.Theme), media.NormalizeRatingScale(user.Preferences.RatingScale)); err != nil {
 			return fmt.Errorf("restore user preferences: %w", err)
 		}
 	}

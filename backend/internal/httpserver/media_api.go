@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/nzagler/gradeium/backend/internal/games"
 	"github.com/nzagler/gradeium/backend/internal/integrations"
+	"github.com/nzagler/gradeium/backend/internal/integrations/jellyfin"
 	"github.com/nzagler/gradeium/backend/internal/media"
 	"github.com/nzagler/gradeium/backend/internal/movies"
 	"github.com/nzagler/gradeium/backend/internal/tv"
@@ -16,7 +17,10 @@ import (
 	"time"
 )
 
-const providerOperationTimeout = 12 * time.Second
+const (
+	providerOperationTimeout = 12 * time.Second
+	jellyfinSyncTimeout      = 10 * time.Minute
+)
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
@@ -179,6 +183,69 @@ func (handlers *apiHandlers) testIntegration(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeJSON(w, http.StatusOK, value)
+}
+
+func (handlers *apiHandlers) jellyfinLibraries(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := mediaContext(r)
+	defer cancel()
+	client, err := handlers.integrations.Jellyfin(ctx)
+	if err != nil {
+		handlers.mediaError(w, r, err)
+		return
+	}
+	libraries, err := client.Libraries(ctx)
+	if err != nil {
+		handlers.mediaError(w, r, &integrations.SafeError{Code: "jellyfin_connection_failed", Message: "Jellyfin libraries could not be loaded.", Cause: err})
+		return
+	}
+	mappings, err := handlers.integrations.JellyfinMappings(ctx)
+	if err != nil {
+		handlers.mediaError(w, r, err)
+		return
+	}
+	byID := make(map[string]string, len(mappings))
+	for _, mapping := range mappings {
+		byID[mapping.LibraryID] = string(mapping.Domain)
+	}
+	for index := range libraries {
+		libraries[index].Domain = ""
+		if domain := byID[libraries[index].ID]; domain != "" {
+			libraries[index].Domain = integrationsJellyfinDomain(domain)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"libraries": libraries})
+}
+
+func (handlers *apiHandlers) syncJellyfin(w http.ResponseWriter, r *http.Request) {
+	if !emptyBody(w, r) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), jellyfinSyncTimeout)
+	defer cancel()
+	client, err := handlers.integrations.Jellyfin(ctx)
+	if err != nil {
+		handlers.mediaError(w, r, err)
+		return
+	}
+	mappings, err := handlers.integrations.JellyfinMappings(ctx)
+	if err != nil {
+		handlers.mediaError(w, r, err)
+		return
+	}
+	if len(mappings) == 0 {
+		writeAPIError(w, http.StatusBadRequest, "validation_error", "Map at least one Jellyfin library before importing.")
+		return
+	}
+	result, err := handlers.jellyfinSync.Sync(ctx, handlers.identity(r), client, mappings)
+	if err != nil {
+		handlers.mediaError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func integrationsJellyfinDomain(value string) jellyfin.MediaType {
+	return jellyfin.MediaType(value)
 }
 
 func (handlers *apiHandlers) searchGames(w http.ResponseWriter, r *http.Request) {

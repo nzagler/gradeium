@@ -149,7 +149,7 @@ func TestPhase4DatabaseMigratesToPhase5DashboardAndPortableBackups(t *testing.T)
 	if summary.Totals["games"].Tracked != 1 || summary.Totals["movies"].Tracked != 1 || summary.Totals["tv"].Tracked != 1 || summary.Totals["games"].Backlog != 0 {
 		t.Fatalf("user-scoped Dashboard totals = %#v", summary.Totals)
 	}
-	if summary.AverageRating == nil || *summary.AverageRating < 8.4 || *summary.AverageRating > 8.5 || len(summary.TVProgress) != 1 || summary.TVProgress[0].Watched == nil || *summary.TVProgress[0].Watched != 1 {
+	if summary.AverageRating == nil || *summary.AverageRating < 84 || *summary.AverageRating > 85 || len(summary.TVProgress) != 1 || summary.TVProgress[0].Watched == nil || *summary.TVProgress[0].Watched != 1 {
 		t.Fatalf("Dashboard averages/progress = %#v", summary)
 	}
 	csvBytes, err := dashboardService.RatingsCSV(ctx, userID)
@@ -157,7 +157,7 @@ func TestPhase4DatabaseMigratesToPhase5DashboardAndPortableBackups(t *testing.T)
 		t.Fatalf("create ratings CSV: %v", err)
 	}
 	records, err := csv.NewReader(bytes.NewReader(csvBytes)).ReadAll()
-	if err != nil || len(records) != 4 || records[1][3] != game.Title || records[1][7] != gameReason {
+	if err != nil || len(records) != 4 || records[1][3] != game.Title || records[1][9] != gameReason || records[1][8] != "1_10" {
 		t.Fatalf("ratings CSV round trip = (%#v, %v)", records, err)
 	}
 

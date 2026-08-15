@@ -14,11 +14,12 @@ import {
 import { NavLink, Outlet } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
-import { getLibraryPreferences, getSettings } from "@/api/client"
+import { getLibraryPreferences, getSettings, type RatingScale } from "@/api/client"
 import { QuickAdd } from "@/app/quick-add"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/features/auth/auth-context"
 import { useTheme } from "@/features/theme/theme-context"
+import { RatingScaleContext } from "@/features/media/rating-scale-context"
 
 type NavigationItem = {
   label: string
@@ -99,6 +100,7 @@ export function AppShell() {
   const [instanceName, setInstanceName] = useState("Gradeium")
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
+  const [ratingScale, setRatingScale] = useState<RatingScale>("1_10")
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -115,7 +117,10 @@ export function AppShell() {
     let active = true
     void getLibraryPreferences()
       .then((preferences) => {
-        if (active) setThemePreference(preferences.theme)
+        if (active) {
+          setThemePreference(preferences.theme)
+          setRatingScale(preferences.ratingScale)
+        }
       })
       .catch(() => {
         // Default-dark rendering remains usable while preferences retry.
@@ -139,14 +144,22 @@ export function AppShell() {
       }
     }
     window.addEventListener("gradeium:instance-name", updateInstanceName)
+    function updateRatingScale(event: Event) {
+      if (event instanceof CustomEvent && typeof event.detail === "string") {
+        setRatingScale(event.detail as RatingScale)
+      }
+    }
+    window.addEventListener("gradeium:rating-scale", updateRatingScale)
     return () => {
       active = false
       window.removeEventListener("gradeium:instance-name", updateInstanceName)
+      window.removeEventListener("gradeium:rating-scale", updateRatingScale)
     }
   }, [setThemePreference])
 
   return (
-    <div className="app-shell min-h-svh bg-background text-foreground">
+    <RatingScaleContext.Provider value={ratingScale}>
+      <div className="app-shell min-h-svh bg-background text-foreground">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r bg-sidebar p-5 text-sidebar-foreground lg:flex">
         <Brand name={instanceName} />
         <div className="mt-8 flex-1">
@@ -229,6 +242,7 @@ export function AppShell() {
         </div>
       </main>
       <QuickAdd />
-    </div>
+      </div>
+    </RatingScaleContext.Provider>
   )
 }

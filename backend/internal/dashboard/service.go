@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nzagler/gradeium/backend/internal/media"
 )
 
 type Scope string
@@ -107,8 +108,8 @@ func (service *Service) Summary(ctx context.Context, userID string, scope Scope)
 		result.Totals[domain] = totals
 		if average.Valid && domainRatingCount > 0 {
 			value, _ := average.Float64Value()
-			display := value.Float64 / 10
-			result.AverageByDomain[domain] = &display
+			canonical := value.Float64
+			result.AverageByDomain[domain] = &canonical
 			ratingSum += value.Float64 * float64(domainRatingCount)
 			ratingCount += domainRatingCount
 		}
@@ -119,7 +120,7 @@ func (service *Service) Summary(ctx context.Context, userID string, scope Scope)
 	}
 	rows.Close()
 	if ratingCount > 0 {
-		value := ratingSum / float64(ratingCount) / 10
+		value := ratingSum / float64(ratingCount)
 		result.AverageRating = &value
 	}
 	if err := service.loadDistribution(ctx, userID, scope, ratingDistributionSQL, &result.RatingDistribution, true); err != nil {
@@ -160,11 +161,11 @@ func (service *Service) loadDistribution(ctx context.Context, userID string, sco
 		label := statusLabels[key]
 		if rating {
 			bucket, _ := strconv.Atoi(key)
-			if bucket == 10 {
-				label = "10.0"
-			} else {
-				label = fmt.Sprintf("%d.0–%d.9", bucket, bucket)
+			upper := bucket*10 + 9
+			if upper > 100 {
+				upper = 100
 			}
+			label = fmt.Sprintf("%d-%d", bucket*10, upper)
 		}
 		*destination = append(*destination, Distribution{Key: key, Label: label, Count: count})
 	}
@@ -198,6 +199,10 @@ func (service *Service) loadItems(ctx context.Context, userID string, scope Scop
 }
 
 func (service *Service) RatingsCSV(ctx context.Context, userID string) ([]byte, error) {
+	var scale string
+	if err := service.pool.QueryRow(ctx, `SELECT COALESCE((SELECT rating_scale FROM user_settings WHERE user_id=$1), '1_10')`, userID).Scan(&scale); err != nil {
+		return nil, fmt.Errorf("read rating scale for export: %w", err)
+	}
 	rows, err := service.pool.Query(ctx, ratingsExportSQL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query ratings export: %w", err)
@@ -205,7 +210,7 @@ func (service *Service) RatingsCSV(ctx context.Context, userID string) ([]byte, 
 	defer rows.Close()
 	var output bytes.Buffer
 	writer := csv.NewWriter(&output)
-	if err := writer.Write([]string{"domain", "gradeium_id", "provider_id", "title", "year", "status", "personal_rating", "rating_reason"}); err != nil {
+	if err := writer.Write([]string{"domain", "gradeium_id", "provider_id", "title", "year", "status", "canonical_rating_0_100", "display_rating", "rating_scale", "rating_reason"}); err != nil {
 		return nil, err
 	}
 	for rows.Next() {
@@ -223,7 +228,11 @@ func (service *Service) RatingsCSV(ctx context.Context, userID string) ([]byte, 
 		if reason.Valid {
 			reasonValue = reason.String
 		}
-		if err := writer.Write([]string{domain, id, providerID, title, yearValue, status, fmt.Sprintf("%.1f", float64(rating)/10), reasonValue}); err != nil {
+		displayRating, err := media.FormatPersonalRating(rating, scale)
+		if err != nil {
+			return nil, err
+		}
+		if err := writer.Write([]string{domain, id, providerID, title, yearValue, status, strconv.Itoa(int(rating)), displayRating, scale, reasonValue}); err != nil {
 			return nil, err
 		}
 	}
@@ -269,10 +278,10 @@ GROUP BY domain ORDER BY domain`
 
 const ratingDistributionSQL = mediaStateCTE + `
 SELECT bucket::text, count FROM (
-    SELECT LEAST(10, ((rating - 10) / 10) + 1) bucket, count(*) count
+    SELECT LEAST(10, rating / 10) bucket, count(*) count
     FROM media_state
     WHERE user_id=$1 AND ($2='all' OR domain=$2) AND status <> 'backlog' AND rating IS NOT NULL
-    GROUP BY LEAST(10, ((rating - 10) / 10) + 1)
+    GROUP BY LEAST(10, rating / 10)
 ) distribution ORDER BY bucket`
 
 const statusDistributionSQL = mediaStateCTE + `

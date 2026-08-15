@@ -209,7 +209,7 @@ export function BackupsPanel() {
         </div>
         <div className="rounded-lg border bg-card p-5 shadow-xs">
           <h2 className="font-semibold">Ratings CSV</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Download a UTF-8 CSV of current rated Library items, including rating reasons.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Download a UTF-8 CSV with canonical 0–100 values, ratings on your selected display scale, and rating reasons.</p>
           <Button className="mt-4" type="button" variant="outline" onClick={() => void downloadRatingsCSV().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "CSV export failed."))}><FileDown />Download ratings CSV</Button>
         </div>
       </section>
