@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 (upcoming)
+
+- Fixed manual Jellyfin imports being cancelled when the initiating browser disconnects by running bounded per-user background jobs with resumable status polling.
+
 ## 1.1.0 (upcoming)
 
 - Added encrypted Jellyfin API-key configuration, library discovery/mapping, and manual add-only Movie/TV imports using TMDB and TVDB canonical provider IDs.

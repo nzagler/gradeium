@@ -1,15 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { CircleAlert, CircleCheck, Download, LoaderCircle, PlugZap, RefreshCw } from "lucide-react"
 
 import {
   configureIntegration,
   getIntegrations,
   getJellyfinLibraries,
+  getJellyfinSyncStatus,
   syncJellyfin,
   testIntegration,
   type IntegrationConfiguration,
   type IntegrationView,
   type JellyfinLibrary,
+  type JellyfinSyncJob,
   type JellyfinSyncResult,
 } from "@/api/client"
 import { Button } from "@/components/ui/button"
@@ -90,9 +92,58 @@ function ProviderCard({ value, changed }: { value: IntegrationView; changed: (va
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [discovering, setDiscovering] = useState(false)
-  const [syncing, setSyncing] = useState(false)
+  const [startingSync, setStartingSync] = useState(false)
+  const [syncJob, setSyncJob] = useState<JellyfinSyncJob>({ state: "idle" })
   const [message, setMessage] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+
+  const applySyncStatus = useCallback((status: JellyfinSyncJob) => {
+    setSyncJob(status)
+    if (status.state === "running") {
+      setSyncResult(null)
+      setMessage("Jellyfin import is running in the background.")
+      setFailed(false)
+    } else if (status.state === "completed" && status.result) {
+      setSyncResult(status.result)
+      setMessage(`Scanned ${status.result.scanned}; added ${status.result.moviesAdded} movies and ${status.result.tvShowsAdded} TV shows.`)
+      setFailed(false)
+    } else if (status.state === "failed") {
+      setSyncResult(null)
+      setMessage(status.message ?? "Jellyfin import could not be completed. Try again.")
+      setFailed(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (value.provider !== "jellyfin") return
+    let active = true
+    void getJellyfinSyncStatus()
+      .then((status) => { if (active) applySyncStatus(status) })
+      .catch((cause: unknown) => {
+        if (!active) return
+        setMessage(cause instanceof Error ? cause.message : "Jellyfin import status could not be loaded.")
+        setFailed(true)
+      })
+    return () => { active = false }
+  }, [applySyncStatus, value.provider])
+
+  useEffect(() => {
+    if (value.provider !== "jellyfin" || syncJob.state !== "running") return
+    let active = true
+    const timer = window.setInterval(() => {
+      void getJellyfinSyncStatus()
+        .then((status) => { if (active) applySyncStatus(status) })
+        .catch((cause: unknown) => {
+          if (!active) return
+          setMessage(cause instanceof Error ? cause.message : "Jellyfin import status could not be refreshed.")
+          setFailed(true)
+        })
+    }, 2000)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+    }
+  }, [applySyncStatus, syncJob.state, value.provider])
 
   async function save(event: FormEvent) {
     event.preventDefault()
@@ -165,19 +216,17 @@ function ProviderCard({ value, changed }: { value: IntegrationView; changed: (va
   }
 
   async function importNow() {
-    setSyncing(true)
+    setStartingSync(true)
     setSyncResult(null)
     setMessage(null)
     setFailed(false)
     try {
-      const result = await syncJellyfin()
-      setSyncResult(result)
-      setMessage(`Scanned ${result.scanned}; added ${result.moviesAdded} movies and ${result.tvShowsAdded} TV shows.`)
+      applySyncStatus(await syncJellyfin())
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Jellyfin import could not be completed.")
       setFailed(true)
     } finally {
-      setSyncing(false)
+      setStartingSync(false)
     }
   }
 
@@ -193,6 +242,7 @@ function ProviderCard({ value, changed }: { value: IntegrationView; changed: (va
   const stateLabel = value.state.replaceAll("_", " ")
   const availableLibraries: JellyfinLibrary[] = libraries.length > 0 ? libraries : (value.libraryMappings ?? []).map((mapping) => ({ id: mapping.libraryId, name: mapping.libraryId, domain: mapping.domain }))
   const jellyfinConfigurationDirty = value.provider === "jellyfin" && hasUnsavedJellyfinConfiguration(input, value)
+  const syncRunning = syncJob.state === "running"
 
   return (
     <section className="rounded-lg border bg-card shadow-xs">
@@ -225,7 +275,7 @@ function ProviderCard({ value, changed }: { value: IntegrationView; changed: (va
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={saving}>{saving && <LoaderCircle className="animate-spin" />}{saving ? "Saving…" : "Save configuration"}</Button>
           <Button type="button" variant="outline" disabled={testing || !value.configured} onClick={() => void test()}>{testing && <LoaderCircle className="animate-spin" />}{testing ? "Testing…" : "Test connection"}</Button>
-          {value.provider === "jellyfin" && <Button type="button" variant="outline" aria-describedby={jellyfinConfigurationDirty ? "jellyfin-save-required" : undefined} disabled={syncing || jellyfinConfigurationDirty || !value.enabled || !value.configured || input.libraryMappings.length === 0} onClick={() => void importNow()}>{syncing ? <LoaderCircle className="animate-spin" /> : <Download />}{syncing ? "Importing…" : syncResult ? "Sync now" : "Import now"}</Button>}
+          {value.provider === "jellyfin" && <Button type="button" variant="outline" aria-describedby={jellyfinConfigurationDirty ? "jellyfin-save-required" : undefined} disabled={startingSync || syncRunning || jellyfinConfigurationDirty || !value.enabled || !value.configured || input.libraryMappings.length === 0} onClick={() => void importNow()}>{startingSync || syncRunning ? <LoaderCircle className="animate-spin" /> : <Download />}{startingSync || syncRunning ? "Importing…" : syncResult ? "Sync now" : "Import now"}</Button>}
           {message && <span role={failed ? "alert" : "status"} className={`inline-flex items-center gap-1 text-sm ${failed ? "text-destructive" : "text-muted-foreground"}`}>{failed ? <CircleAlert className="size-4" /> : <CircleCheck className="size-4" />}{message}</span>}
         </div>
         {jellyfinConfigurationDirty && <p id="jellyfin-save-required" role="status" className="text-xs text-muted-foreground">Save configuration before using Import now or Sync now.</p>}

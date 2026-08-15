@@ -7,6 +7,7 @@ import (
 	"github.com/nzagler/gradeium/backend/internal/games"
 	"github.com/nzagler/gradeium/backend/internal/integrations"
 	"github.com/nzagler/gradeium/backend/internal/integrations/jellyfin"
+	"github.com/nzagler/gradeium/backend/internal/jellyfinsync"
 	"github.com/nzagler/gradeium/backend/internal/media"
 	"github.com/nzagler/gradeium/backend/internal/movies"
 	"github.com/nzagler/gradeium/backend/internal/tv"
@@ -19,7 +20,6 @@ import (
 
 const (
 	providerOperationTimeout = 12 * time.Second
-	jellyfinSyncTimeout      = 10 * time.Minute
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -220,7 +220,12 @@ func (handlers *apiHandlers) syncJellyfin(w http.ResponseWriter, r *http.Request
 	if !emptyBody(w, r) {
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), jellyfinSyncTimeout)
+	userID := handlers.identity(r)
+	if current := handlers.jellyfinSync.Status(userID); current.State == jellyfinsync.JobRunning {
+		writeJSON(w, http.StatusAccepted, current)
+		return
+	}
+	ctx, cancel := mediaContext(r)
 	defer cancel()
 	client, err := handlers.integrations.Jellyfin(ctx)
 	if err != nil {
@@ -236,12 +241,12 @@ func (handlers *apiHandlers) syncJellyfin(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, http.StatusBadRequest, "validation_error", "Map at least one Jellyfin library before importing.")
 		return
 	}
-	result, err := handlers.jellyfinSync.Sync(ctx, handlers.identity(r), client, mappings)
-	if err != nil {
-		handlers.mediaError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
+	status, _ := handlers.jellyfinSync.Start(userID, client, mappings)
+	writeJSON(w, http.StatusAccepted, status)
+}
+
+func (handlers *apiHandlers) jellyfinSyncStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, handlers.jellyfinSync.Status(handlers.identity(r)))
 }
 
 func integrationsJellyfinDomain(value string) jellyfin.MediaType {

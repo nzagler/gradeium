@@ -99,6 +99,10 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 			return err
 		},
 	)
+	jellyfinSyncJobs := jellyfinsync.NewJobManager(ctx, jellyfinSyncService, jellyfinsync.DefaultJobTimeout)
+	// This defer was registered after pool.Close, so active imports are cancelled
+	// and joined before their database dependencies are closed.
+	defer jellyfinSyncJobs.Close()
 	apiHandler := httpserver.NewAPIWithPhase11(
 		logger,
 		setupService,
@@ -114,7 +118,7 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		preferenceService,
 		backupService,
 		dashboardService,
-		jellyfinSyncService,
+		jellyfinSyncJobs,
 	)
 
 	schedulerContext, cancelScheduler := context.WithCancel(ctx)

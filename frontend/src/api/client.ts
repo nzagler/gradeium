@@ -261,6 +261,11 @@ export type JellyfinSyncResult = {
   failed: number
   issues: { libraryId?: string; title?: string; reason: string }[]
 }
+export type JellyfinSyncJob = {
+  state: "idle" | "running" | "completed" | "failed"
+  result?: JellyfinSyncResult
+  message?: string
+}
 
 export type LibraryPreferences = {
   defaultLibrarySort: string
@@ -471,7 +476,11 @@ export function getJellyfinLibraries() {
 }
 
 export function syncJellyfin() {
-  return apiRequest<JellyfinSyncResult>("/admin/integrations/jellyfin/sync", { method: "POST" })
+  return apiRequest<JellyfinSyncJob>("/admin/integrations/jellyfin/sync", { method: "POST" })
+}
+
+export function getJellyfinSyncStatus() {
+  return apiRequest<JellyfinSyncJob>("/admin/integrations/jellyfin/sync")
 }
 
 export function getLibraryPreferences() {
