@@ -23,6 +23,25 @@ const providerCopy = {
   jellyfin: { name: "Jellyfin", purpose: "Manual, add-only movie and TV imports using canonical provider IDs.", secretLabel: "Jellyfin API key" },
 } as const
 
+function comparableBaseURL(value: string) {
+  return value.trim().replace(/\/+$/, "")
+}
+
+function comparableMappings(values: IntegrationConfiguration["libraryMappings"]) {
+  return values
+    .map((mapping) => `${mapping.libraryId.trim()}:${mapping.domain}`)
+    .sort()
+    .join("|")
+}
+
+function hasUnsavedJellyfinConfiguration(input: IntegrationConfiguration, value: IntegrationView) {
+  return input.enabled !== value.enabled
+    || comparableBaseURL(input.baseUrl) !== comparableBaseURL(value.baseUrl ?? "")
+    || comparableMappings(input.libraryMappings) !== comparableMappings(value.libraryMappings ?? [])
+    || input.secret !== ""
+    || input.removeSecret
+}
+
 export function IntegrationsPanel() {
   const [values, setValues] = useState<IntegrationView[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,7 +102,16 @@ function ProviderCard({ value, changed }: { value: IntegrationView; changed: (va
     try {
       const next = await configureIntegration(value.provider, input)
       changed(next)
-      setInput({ ...input, baseUrl: next.baseUrl ?? input.baseUrl, secret: "", pin: "", removeSecret: false, removePin: false })
+      setInput((current) => ({
+        ...current,
+        enabled: next.enabled,
+        baseUrl: next.baseUrl ?? current.baseUrl,
+        libraryMappings: next.libraryMappings ?? current.libraryMappings,
+        secret: "",
+        pin: "",
+        removeSecret: false,
+        removePin: false,
+      }))
       setMessage("Configuration saved. Test the connection before using this provider.")
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Configuration could not be saved.")
@@ -164,6 +192,7 @@ function ProviderCard({ value, changed }: { value: IntegrationView; changed: (va
 
   const stateLabel = value.state.replaceAll("_", " ")
   const availableLibraries: JellyfinLibrary[] = libraries.length > 0 ? libraries : (value.libraryMappings ?? []).map((mapping) => ({ id: mapping.libraryId, name: mapping.libraryId, domain: mapping.domain }))
+  const jellyfinConfigurationDirty = value.provider === "jellyfin" && hasUnsavedJellyfinConfiguration(input, value)
 
   return (
     <section className="rounded-lg border bg-card shadow-xs">
@@ -196,9 +225,10 @@ function ProviderCard({ value, changed }: { value: IntegrationView; changed: (va
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={saving}>{saving && <LoaderCircle className="animate-spin" />}{saving ? "Saving…" : "Save configuration"}</Button>
           <Button type="button" variant="outline" disabled={testing || !value.configured} onClick={() => void test()}>{testing && <LoaderCircle className="animate-spin" />}{testing ? "Testing…" : "Test connection"}</Button>
-          {value.provider === "jellyfin" && <Button type="button" variant="outline" disabled={syncing || !value.enabled || !value.configured || input.libraryMappings.length === 0} onClick={() => void importNow()}>{syncing ? <LoaderCircle className="animate-spin" /> : <Download />}{syncing ? "Importing…" : syncResult ? "Sync now" : "Import now"}</Button>}
+          {value.provider === "jellyfin" && <Button type="button" variant="outline" aria-describedby={jellyfinConfigurationDirty ? "jellyfin-save-required" : undefined} disabled={syncing || jellyfinConfigurationDirty || !value.enabled || !value.configured || input.libraryMappings.length === 0} onClick={() => void importNow()}>{syncing ? <LoaderCircle className="animate-spin" /> : <Download />}{syncing ? "Importing…" : syncResult ? "Sync now" : "Import now"}</Button>}
           {message && <span role={failed ? "alert" : "status"} className={`inline-flex items-center gap-1 text-sm ${failed ? "text-destructive" : "text-muted-foreground"}`}>{failed ? <CircleAlert className="size-4" /> : <CircleCheck className="size-4" />}{message}</span>}
         </div>
+        {jellyfinConfigurationDirty && <p id="jellyfin-save-required" role="status" className="text-xs text-muted-foreground">Save configuration before using Import now or Sync now.</p>}
         {syncResult && <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground"><p>{syncResult.alreadyPresent} already tracked · {syncResult.skipped} skipped · {syncResult.failed} failed</p>{syncResult.issues.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5">{syncResult.issues.slice(0, 20).map((issue, index) => <li key={`${issue.libraryId ?? "item"}-${issue.title ?? "unknown"}-${index}`}>{issue.title ? `${issue.title}: ` : ""}{issue.reason}</li>)}</ul>}</div>}
         {value.lastTest && <p className="text-xs text-muted-foreground">Last tested {new Date(value.lastTest.testedAt).toLocaleString()} · {value.lastTest.message}</p>}
       </form>

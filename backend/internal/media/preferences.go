@@ -83,7 +83,7 @@ func NormalizeTheme(value string) string {
 
 func ValidRatingScale(value string) bool {
 	switch value {
-	case "1_10", "0_5", "minus5_plus5", "0_100":
+	case "0_10", "0_5", "minus5_plus5", "0_100":
 		return true
 	default:
 		return false
@@ -92,7 +92,7 @@ func ValidRatingScale(value string) bool {
 
 func NormalizeRatingScale(value string) string {
 	if value == "" {
-		return "1_10"
+		return "0_10"
 	}
 	return value
 }

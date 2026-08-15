@@ -72,7 +72,7 @@ func TestThemePreference(t *testing.T) {
 }
 
 func TestRatingScalePreferenceAndFormatting(t *testing.T) {
-	for _, scale := range []string{"1_10", "0_5", "minus5_plus5", "0_100"} {
+	for _, scale := range []string{"0_10", "0_5", "minus5_plus5", "0_100"} {
 		if !ValidRatingScale(scale) {
 			t.Fatalf("ValidRatingScale(%q) = false", scale)
 		}
@@ -80,7 +80,7 @@ func TestRatingScalePreferenceAndFormatting(t *testing.T) {
 	if ValidRatingScale("stars") {
 		t.Fatal("ValidRatingScale accepted an unsupported value")
 	}
-	if got := NormalizeRatingScale(""); got != "1_10" {
+	if got := NormalizeRatingScale(""); got != "0_10" {
 		t.Fatalf("NormalizeRatingScale(\"\") = %q", got)
 	}
 	tests := []struct {
@@ -88,8 +88,8 @@ func TestRatingScalePreferenceAndFormatting(t *testing.T) {
 		scale string
 		want  string
 	}{
-		{0, "1_10", "0.0"},
-		{51, "1_10", "5.1"},
+		{0, "0_10", "0.0"},
+		{51, "0_10", "5.1"},
 		{51, "0_5", "2.55"},
 		{50, "minus5_plus5", "+0.0"},
 		{49, "minus5_plus5", "-0.1"},

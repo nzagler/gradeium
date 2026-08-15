@@ -62,7 +62,7 @@ func TestPhase6DatabaseMigratesToPhase11WithoutRewritingRatings(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT ug.rating,um.rating,ut.rating,us.rating_scale FROM user_games ug JOIN user_movies um ON um.user_id=ug.user_id JOIN user_tv_shows ut ON ut.user_id=ug.user_id JOIN user_settings us ON us.user_id=ug.user_id WHERE ug.user_id=$1`, userID).Scan(&gameRating, &movieRating, &tvRating, &scale); err != nil {
 		t.Fatal(err)
 	}
-	if gameRating != 10 || movieRating != 50 || tvRating != 100 || scale != "1_10" {
+	if gameRating != 10 || movieRating != 50 || tvRating != 100 || scale != "0_10" {
 		t.Fatalf("migrated ratings/preferences = (%d, %d, %d, %q)", gameRating, movieRating, tvRating, scale)
 	}
 	if _, err := pool.Exec(ctx, `UPDATE user_games SET rating=0 WHERE user_id=$1`, userID); err != nil {

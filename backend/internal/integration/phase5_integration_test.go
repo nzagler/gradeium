@@ -157,7 +157,7 @@ func TestPhase4DatabaseMigratesToPhase5DashboardAndPortableBackups(t *testing.T)
 		t.Fatalf("create ratings CSV: %v", err)
 	}
 	records, err := csv.NewReader(bytes.NewReader(csvBytes)).ReadAll()
-	if err != nil || len(records) != 4 || records[1][3] != game.Title || records[1][9] != gameReason || records[1][8] != "1_10" {
+	if err != nil || len(records) != 4 || records[1][3] != game.Title || records[1][9] != gameReason || records[1][8] != "0_10" {
 		t.Fatalf("ratings CSV round trip = (%#v, %v)", records, err)
 	}
 

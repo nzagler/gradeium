@@ -200,7 +200,7 @@ func (service *Service) loadItems(ctx context.Context, userID string, scope Scop
 
 func (service *Service) RatingsCSV(ctx context.Context, userID string) ([]byte, error) {
 	var scale string
-	if err := service.pool.QueryRow(ctx, `SELECT COALESCE((SELECT rating_scale FROM user_settings WHERE user_id=$1), '1_10')`, userID).Scan(&scale); err != nil {
+	if err := service.pool.QueryRow(ctx, `SELECT COALESCE((SELECT rating_scale FROM user_settings WHERE user_id=$1), '0_10')`, userID).Scan(&scale); err != nil {
 		return nil, fmt.Errorf("read rating scale for export: %w", err)
 	}
 	rows, err := service.pool.Query(ctx, ratingsExportSQL, userID)

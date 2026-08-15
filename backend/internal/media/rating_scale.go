@@ -14,7 +14,7 @@ func FormatPersonalRating(value int16, scale string) (string, error) {
 		return "", errors.New("canonical rating is outside 0 to 100")
 	}
 	switch NormalizeRatingScale(scale) {
-	case "1_10":
+	case "0_10":
 		return fmt.Sprintf("%.1f", float64(value)/10), nil
 	case "0_5":
 		return trimDecimal(float64(value) / 20), nil
@@ -33,6 +33,8 @@ func FormatPersonalRating(value int16, scale string) (string, error) {
 
 func RatingScaleLabel(scale string) string {
 	switch NormalizeRatingScale(scale) {
+	case "0_10":
+		return "0 to 10"
 	case "0_5":
 		return "0 to 5"
 	case "minus5_plus5":
@@ -40,7 +42,7 @@ func RatingScaleLabel(scale string) string {
 	case "0_100":
 		return "0 to 100"
 	default:
-		return "1 to 10"
+		return "0 to 10"
 	}
 }
 

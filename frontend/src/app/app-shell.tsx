@@ -100,7 +100,7 @@ export function AppShell() {
   const [instanceName, setInstanceName] = useState("Gradeium")
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
-  const [ratingScale, setRatingScale] = useState<RatingScale>("1_10")
+  const [ratingScale, setRatingScale] = useState<RatingScale>("0_10")
 
   async function handleSignOut() {
     setSigningOut(true)

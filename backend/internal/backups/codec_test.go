@@ -76,7 +76,7 @@ func TestValidateThemePreferenceAndLegacyDefault(t *testing.T) {
 	if err := Validate(document); err == nil || !strings.Contains(err.Error(), "preferences") {
 		t.Fatalf("Validate() invalid rating scale error = %v", err)
 	}
-	document.Users[0].Preferences.RatingScale = "1_10"
+	document.Users[0].Preferences.RatingScale = "0_10"
 	document.Users[0].Preferences.Theme = "neon"
 	if err := Validate(document); err == nil || !strings.Contains(err.Error(), "preferences") {
 		t.Fatalf("Validate() invalid theme error = %v", err)

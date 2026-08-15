@@ -111,7 +111,7 @@ SELECT jsonb_build_object(
         'defaultLibrarySort', COALESCE(us.default_library_sort, 'rating_desc'),
         'preferredView', COALESCE(us.preferred_view, 'grid'),
         'theme', COALESCE(us.theme, 'dark'),
-        'ratingScale', COALESCE(us.rating_scale, '1_10')
+        'ratingScale', COALESCE(us.rating_scale, '0_10')
     )
 )
 FROM users u

@@ -269,7 +269,7 @@ export type LibraryPreferences = {
   ratingScale: RatingScale
 }
 
-export type RatingScale = "1_10" | "0_5" | "minus5_plus5" | "0_100"
+export type RatingScale = "0_10" | "0_5" | "minus5_plus5" | "0_100"
 
 export type DashboardScope = "all" | MediaDomain
 

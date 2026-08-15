@@ -100,7 +100,7 @@ Provider downtime does not prevent an authenticated user from opening already-st
 Every item has a Gradeium-owned UUIDv7 identity while provider IDs remain unique external references. Canonical provider metadata is stored separately for Games, Movies, and TV Shows, and personal state is stored separately per user.
 
 - Library statuses are In Progress, On Hold, Abandoned, and Completed; Backlog is a separate view.
-- Ratings use 1.0–10.0 in exact 0.1 increments, with one optional private reason. Backlog cannot be rated.
+- Ratings default to the 0.0–10.0 display scale in exact 0.1 increments, with one optional private reason. Backlog cannot be rated.
 - Moving a rated item to Backlog requires confirmation and removes its rating and reason.
 - Artwork choices are limited to provider-supplied Cover/Poster, Backdrop, and Logo candidates. Pins survive metadata refresh; an unavailable pin falls back visibly to the provider default.
 - TV progress is episode-based in TVDB default aired order. Specials are tracked separately and never affect the regular-episode percentage. Status changes never alter progress automatically.
@@ -116,7 +116,7 @@ Each user can choose **Dark**, **Light**, or **System** under **Settings → App
 
 ## Portable backups and restore
 
-Gradeium writes application-managed backups to the persistent `/backups` mount as gzip-compressed, versioned JSON. The canonical 1.0 format is `gradeium-backup` version `1`; filenames use UTC timestamps and each completed file is validated and checksummed before atomic publication. The format remains backward-compatible with Phase 5 backups: a missing theme preference restores as Dark.
+Gradeium writes application-managed backups to the persistent `/backups` mount as gzip-compressed, versioned JSON. The canonical 1.0 format is `gradeium-backup` version `1`; filenames use UTC timestamps and each completed file is validated and checksummed before atomic publication. The format remains backward-compatible with older backups: a missing theme preference restores as Dark and a missing rating-scale preference restores as 0–10.
 
 Portable backups contain Gradeium user identities, canonical Games/Movies/TV metadata, provider identity mappings, personal statuses and ratings/reasons, TV episode progress (including Specials), artwork pins, and user Library preferences. They never contain OIDC or provider secrets in plaintext or encrypted form, session material, CSRF tokens, database credentials, or the master key. `/config/master.key` and external-service credentials therefore remain a separate operator recovery responsibility.
 

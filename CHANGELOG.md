@@ -3,7 +3,7 @@
 ## 1.1.0 (upcoming)
 
 - Added encrypted Jellyfin API-key configuration, library discovery/mapping, and manual add-only Movie/TV imports using TMDB and TVDB canonical provider IDs.
-- Added per-user 1–10, 0–5, -5–+5, and 0–100 personal rating scales while preserving canonical 0–100 ratings, sorting, backups, and existing values.
+- Added per-user 0–10, 0–5, -5–+5, and 0–100 personal rating scales while preserving canonical 0–100 ratings, sorting, backups, and existing values.
 - Replaced browser number controls with a controlled, keyboard- and mobile-friendly rolling-digit rating editor.
 
 ## 1.0.1

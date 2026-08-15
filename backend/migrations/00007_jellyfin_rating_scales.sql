@@ -20,8 +20,8 @@ ALTER TABLE user_tv_shows
         CHECK (rating IS NULL OR rating BETWEEN 0 AND 100);
 
 ALTER TABLE user_settings
-    ADD COLUMN rating_scale text NOT NULL DEFAULT '1_10'
-        CHECK (rating_scale IN ('1_10', '0_5', 'minus5_plus5', '0_100'));
+    ADD COLUMN rating_scale text NOT NULL DEFAULT '0_10'
+        CHECK (rating_scale IN ('0_10', '0_5', 'minus5_plus5', '0_100'));
 
 -- +goose Down
 ALTER TABLE user_settings DROP COLUMN rating_scale;

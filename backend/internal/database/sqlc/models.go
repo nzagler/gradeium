@@ -368,6 +368,7 @@ type UserSetting struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	Theme              string             `json:"theme"`
+	RatingScale        string             `json:"rating_scale"`
 }
 
 type UserTvShow struct {

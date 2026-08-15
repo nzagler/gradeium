@@ -11,7 +11,6 @@ import {
   displayFromCanonical,
   eraseRatingDigit,
   formatPersonalRating,
-  minimumSelectableCanonicalRating,
   parseDisplayRating,
   ratingScaleLabel,
   ratingStepLabel,
@@ -99,7 +98,7 @@ function RatingEditor({ domain, id, title, state, close, saved }: {
   }
 
   function changeRating(next: number) {
-    setRating(Math.max(minimumSelectableCanonicalRating(scale), Math.min(100, next)))
+    setRating(Math.max(0, Math.min(100, next)))
     setInputError(null)
   }
 
@@ -160,7 +159,7 @@ function RatingEditor({ domain, id, title, state, close, saved }: {
               <Button type="button" variant="outline" aria-label="Toggle rating sign" onClick={() => changeRating(100 - rating)}>+ / −</Button>
             )}
           </div>
-          <p id="rating-guidance" className="mt-2 text-xs text-muted-foreground">Type digits to roll the value; for example, 5.1 then 1 becomes 1.1. Arrow keys and the step buttons change it by {ratingStepLabel(scale)}.</p>
+          <p id="rating-guidance" className="mt-2 text-xs text-muted-foreground">Type digits to roll the value; on 0 to 10, 5.0 then 8 becomes 0.8, then 7 becomes 8.7. Arrow keys and the step buttons change it by {ratingStepLabel(scale)}.</p>
           {inputError && <p role="alert" className="mt-1 text-xs text-destructive">{inputError}</p>}
         </div>
         <div>

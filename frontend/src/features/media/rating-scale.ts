@@ -1,7 +1,7 @@
 import type { RatingScale } from "@/api/client"
 
 export const ratingScaleOptions: { value: RatingScale; label: string; example: string }[] = [
-  { value: "1_10", label: "1 to 10", example: "8.7" },
+  { value: "0_10", label: "0 to 10", example: "8.7" },
   { value: "0_5", label: "0 to 5", example: "4.35" },
   { value: "minus5_plus5", label: "-5 to +5", example: "+3.7" },
   { value: "0_100", label: "0 to 100", example: "87" },
@@ -23,17 +23,13 @@ export function formatPersonalRating(value: number, scale: RatingScale) {
 }
 
 export function ratingScaleLabel(scale: RatingScale) {
-  return ratingScaleOptions.find((option) => option.value === scale)?.label ?? "1 to 10"
+  return ratingScaleOptions.find((option) => option.value === scale)?.label ?? "0 to 10"
 }
 
 export function ratingStepLabel(scale: RatingScale) {
   if (scale === "0_5") return "0.05"
   if (scale === "0_100") return "1"
   return "0.1"
-}
-
-export function minimumSelectableCanonicalRating(scale: RatingScale) {
-  return scale === "1_10" ? 10 : 0
 }
 
 export function canonicalFromDisplay(value: number, scale: RatingScale) {
@@ -101,7 +97,6 @@ export function ratingDistributionLabel(key: string, scale: RatingScale) {
 }
 
 function displayMinimum(scale: RatingScale) {
-  if (scale === "1_10") return 1
   return scale === "minus5_plus5" ? -5 : 0
 }
 
