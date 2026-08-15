@@ -224,7 +224,7 @@ func (client *Client) Show(ctx context.Context, providerID int64) (Show, error) 
 		return Show{}, errors.New("invalid TVDB series ID")
 	}
 	var response envelope[showDTO]
-	if err := client.get(ctx, "/series/"+strconv.FormatInt(providerID, 10)+"/extended", url.Values{"meta": {"translations"}, "short": {"true"}}, &response); err != nil {
+	if err := client.get(ctx, "/series/"+strconv.FormatInt(providerID, 10)+"/extended", url.Values{"meta": {"translations"}}, &response); err != nil {
 		return Show{}, err
 	}
 	if response.Data.ID != providerID || strings.TrimSpace(response.Data.Name) == "" {

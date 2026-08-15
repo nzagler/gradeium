@@ -15,6 +15,12 @@ func TestShowUsesDefaultAiredOrderAndClassifiesSpecials(t *testing.T) {
 		case "/login":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"token":"tvdb-token"}}`))
 		case "/series/100/extended":
+			if got := r.URL.Query().Get("short"); got != "" {
+				t.Errorf("series extended request unexpectedly set short=%q", got)
+			}
+			if got := r.URL.Query().Get("meta"); got != "translations" {
+				t.Errorf("series extended request meta=%q, want translations", got)
+			}
 			_, _ = w.Write([]byte(`{"status":"success","data":{"id":100,"name":"Example Show","firstAired":"2020-01-01","status":{"name":"Continuing"},"genres":[{"name":"Drama"}],"artworks":[{"id":20,"type":2,"image":"/banners/v4/series/100/posters/poster.jpg","thumbnail":"http://artworks.thetvdb.com/banners/v4/series/100/posters/poster-thumb.jpg"}],"characters":[{"name":"Lead","personName":"Actor","peopleType":"Actor","image":"banners/v4/actor/200/photo/person.jpg"}],"seasons":[{"id":10,"number":0,"name":"Specials","type":{"type":"Aired Order"}},{"id":11,"number":1,"name":"Season 1","image":"//artworks.thetvdb.com/banners/v4/series/100/seasons/1.jpg","type":{"type":"Aired Order"}}]}}`))
 		case "/series/100/episodes/default/eng":
 			_, _ = w.Write([]byte(`{"status":"success","data":{"episodes":[{"id":1,"seasonNumber":0,"number":1,"name":"Special"},{"id":2,"seasonNumber":1,"number":1,"name":"Pilot","runtime":45,"image":"http://www.thetvdb.com/banners/episodes/100/2.jpg"}]},"links":{"next":null}}`))
