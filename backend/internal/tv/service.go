@@ -189,6 +189,20 @@ func (service *Service) Add(ctx context.Context, userID string, providerID int64
 	}
 	return detail, err
 }
+
+// TrackedProviderIDs is used by add-only imports to avoid touching canonical
+// metadata, episode progress, or personal state for existing shows.
+func (service *Service) TrackedProviderIDs(ctx context.Context, userID string, providerIDs []int64) (map[int64]bool, error) {
+	tracked, err := service.store.Tracked(ctx, userID, providerIDs)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[int64]bool, len(tracked))
+	for providerID := range tracked {
+		result[providerID] = true
+	}
+	return result, nil
+}
 func (service *Service) List(ctx context.Context, userID string, backlog bool) ([]Item, error) {
 	return service.store.List(ctx, userID, backlog)
 }

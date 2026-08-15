@@ -227,11 +227,13 @@ export type MediaDetail = MediaItem & {
 }
 
 export type IntegrationView = {
-  provider: "igdb" | "tmdb" | "tvdb"
+  provider: "igdb" | "tmdb" | "tvdb" | "jellyfin"
   enabled: boolean
   configured: boolean
   state: "not_configured" | "disabled" | "configured" | "connected" | "error"
   clientId?: string
+  baseUrl?: string
+  libraryMappings?: JellyfinLibraryMapping[]
   secretConfigured: boolean
   pinConfigured?: boolean
   lastTest?: { provider: string; status: string; message: string; testedAt: string }
@@ -244,13 +246,30 @@ export type IntegrationConfiguration = {
   removeSecret: boolean
   pin: string
   removePin: boolean
+  baseUrl: string
+  libraryMappings: JellyfinLibraryMapping[]
+}
+
+export type JellyfinLibraryMapping = { libraryId: string; domain: "movies" | "tv" }
+export type JellyfinLibrary = { id: string; name: string; collectionType?: string; domain?: "movies" | "tv" }
+export type JellyfinSyncResult = {
+  scanned: number
+  moviesAdded: number
+  tvShowsAdded: number
+  alreadyPresent: number
+  skipped: number
+  failed: number
+  issues: { libraryId?: string; title?: string; reason: string }[]
 }
 
 export type LibraryPreferences = {
   defaultLibrarySort: string
   preferredView: "grid" | "list"
   theme: "dark" | "light" | "system"
+  ratingScale: RatingScale
 }
+
+export type RatingScale = "0_10" | "0_5" | "minus5_plus5" | "0_100"
 
 export type DashboardScope = "all" | MediaDomain
 
@@ -445,6 +464,14 @@ export function testIntegration(provider: string) {
     `/admin/integrations/${provider}/test`,
     { method: "POST" },
   )
+}
+
+export function getJellyfinLibraries() {
+  return apiRequest<{ libraries: JellyfinLibrary[] }>("/admin/integrations/jellyfin/libraries")
+}
+
+export function syncJellyfin() {
+  return apiRequest<JellyfinSyncResult>("/admin/integrations/jellyfin/sync", { method: "POST" })
 }
 
 export function getLibraryPreferences() {

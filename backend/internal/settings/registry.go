@@ -23,6 +23,10 @@ const (
 	TVDBEnabledKey                      = "integrations.tvdb.enabled"
 	TVDBAPIKey                          = "integrations.tvdb.api_key"
 	TVDBPINKey                          = "integrations.tvdb.pin"
+	JellyfinEnabledKey                  = "integrations.jellyfin.enabled"
+	JellyfinBaseURLKey                  = "integrations.jellyfin.base_url"
+	JellyfinAPIKey                      = "integrations.jellyfin.api_key"
+	JellyfinLibraryMappingsKey          = "integrations.jellyfin.library_mappings"
 
 	// FutureAuthenticationSecretKey is retained as a source-compatible alias
 	// for the Phase 2 reserved key.
@@ -161,6 +165,26 @@ func NewRegistry() *Registry {
 			Key: TVDBPINKey, Section: "integrations", Label: "TVDB subscriber PIN",
 			Description: "Optional encrypted subscriber PIN for a user-supported TVDB key.",
 			Type:        ValueTypeString, Sensitivity: SensitivitySecret,
+		},
+		{
+			Key: JellyfinEnabledKey, Section: "integrations", Label: "Jellyfin enabled",
+			Description: "Allow manual add-only imports from the configured Jellyfin server.",
+			Type:        ValueTypeBoolean, Sensitivity: SensitivityPublic, Default: json.RawMessage(`false`),
+		},
+		{
+			Key: JellyfinBaseURLKey, Section: "integrations", Label: "Jellyfin server URL",
+			Description: "The HTTP or HTTPS base URL for the Jellyfin server.",
+			Type:        ValueTypeString, Sensitivity: SensitivityPublic, MaxLength: 2048,
+		},
+		{
+			Key: JellyfinAPIKey, Section: "integrations", Label: "Jellyfin API key",
+			Description: "The encrypted Jellyfin API key. Saved values are never displayed again.",
+			Type:        ValueTypeString, Sensitivity: SensitivitySecret,
+		},
+		{
+			Key: JellyfinLibraryMappingsKey, Section: "integrations", Label: "Jellyfin library mappings",
+			Description: "Internal mapping from Jellyfin libraries to Gradeium domains.",
+			Type:        ValueTypeString, Sensitivity: SensitivityPublic, Default: json.RawMessage(`"[]"`), Internal: true, MaxLength: 16384,
 		},
 	})
 	if err != nil {

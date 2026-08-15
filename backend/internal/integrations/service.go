@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/nzagler/gradeium/backend/internal/database/sqlc"
 	"github.com/nzagler/gradeium/backend/internal/integrations/igdb"
+	"github.com/nzagler/gradeium/backend/internal/integrations/jellyfin"
 	"github.com/nzagler/gradeium/backend/internal/integrations/tmdb"
 	"github.com/nzagler/gradeium/backend/internal/integrations/tvdb"
 	"github.com/nzagler/gradeium/backend/internal/secrets"
@@ -75,22 +76,26 @@ type TestStatus struct {
 	TestedAt time.Time `json:"testedAt"`
 }
 type ProviderView struct {
-	Provider         string      `json:"provider"`
-	Enabled          bool        `json:"enabled"`
-	Configured       bool        `json:"configured"`
-	State            string      `json:"state"`
-	ClientID         string      `json:"clientId,omitempty"`
-	SecretConfigured bool        `json:"secretConfigured"`
-	PINConfigured    bool        `json:"pinConfigured,omitempty"`
-	LastTest         *TestStatus `json:"lastTest,omitempty"`
+	Provider         string                    `json:"provider"`
+	Enabled          bool                      `json:"enabled"`
+	Configured       bool                      `json:"configured"`
+	State            string                    `json:"state"`
+	ClientID         string                    `json:"clientId,omitempty"`
+	BaseURL          string                    `json:"baseUrl,omitempty"`
+	LibraryMappings  []jellyfin.LibraryMapping `json:"libraryMappings,omitempty"`
+	SecretConfigured bool                      `json:"secretConfigured"`
+	PINConfigured    bool                      `json:"pinConfigured,omitempty"`
+	LastTest         *TestStatus               `json:"lastTest,omitempty"`
 }
 type ConfigurationInput struct {
-	Enabled      bool   `json:"enabled"`
-	ClientID     string `json:"clientId"`
-	Secret       string `json:"secret"`
-	RemoveSecret bool   `json:"removeSecret"`
-	PIN          string `json:"pin"`
-	RemovePIN    bool   `json:"removePin"`
+	Enabled         bool                      `json:"enabled"`
+	ClientID        string                    `json:"clientId"`
+	Secret          string                    `json:"secret"`
+	RemoveSecret    bool                      `json:"removeSecret"`
+	PIN             string                    `json:"pin"`
+	RemovePIN       bool                      `json:"removePin"`
+	BaseURL         string                    `json:"baseUrl"`
+	LibraryMappings []jellyfin.LibraryMapping `json:"libraryMappings"`
 }
 
 type Service struct {
@@ -120,10 +125,13 @@ func (service *Service) List(ctx context.Context) ([]ProviderView, error) {
 	for _, status := range statuses {
 		statusByProvider[status.Provider] = status
 	}
-	definitions := []struct{ provider, enabledKey, clientIDKey, secretKey, pinKey string }{{"igdb", settings.IGDBEnabledKey, settings.IGDBClientIDKey, settings.IGDBClientSecretKey, ""}, {"tmdb", settings.TMDBEnabledKey, "", settings.TMDBAccessTokenKey, ""}, {"tvdb", settings.TVDBEnabledKey, "", settings.TVDBAPIKey, settings.TVDBPINKey}}
+	definitions := []struct{ provider, enabledKey, clientIDKey, secretKey, pinKey, baseURLKey string }{{"igdb", settings.IGDBEnabledKey, settings.IGDBClientIDKey, settings.IGDBClientSecretKey, "", ""}, {"tmdb", settings.TMDBEnabledKey, "", settings.TMDBAccessTokenKey, "", ""}, {"tvdb", settings.TVDBEnabledKey, "", settings.TVDBAPIKey, settings.TVDBPINKey, ""}, {"jellyfin", settings.JellyfinEnabledKey, "", settings.JellyfinAPIKey, "", settings.JellyfinBaseURLKey}}
 	result := make([]ProviderView, 0, len(definitions))
 	for _, definition := range definitions {
-		view := ProviderView{Provider: definition.provider, Enabled: decodeBool(public[definition.enabledKey]), ClientID: decodeString(public[definition.clientIDKey])}
+		view := ProviderView{Provider: definition.provider, Enabled: decodeBool(public[definition.enabledKey]), ClientID: decodeString(public[definition.clientIDKey]), BaseURL: decodeString(public[definition.baseURLKey])}
+		if definition.provider == "jellyfin" {
+			view.LibraryMappings = decodeMappings(public[settings.JellyfinLibraryMappingsKey])
+		}
 		view.SecretConfigured, err = service.secrets.Configured(ctx, definition.secretKey)
 		if err != nil {
 			return nil, err
@@ -134,7 +142,7 @@ func (service *Service) List(ctx context.Context) ([]ProviderView, error) {
 				return nil, err
 			}
 		}
-		view.Configured = view.SecretConfigured && (definition.clientIDKey == "" || view.ClientID != "")
+		view.Configured = view.SecretConfigured && (definition.clientIDKey == "" || view.ClientID != "") && (definition.baseURLKey == "" || view.BaseURL != "")
 		switch {
 		case !view.Configured:
 			view.State = "not_configured"
@@ -157,7 +165,7 @@ func (service *Service) List(ctx context.Context) ([]ProviderView, error) {
 
 func (service *Service) Configure(ctx context.Context, provider string, input ConfigurationInput) (ProviderView, error) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
-	var enabledKey, clientIDKey, secretKey, pinKey string
+	var enabledKey, clientIDKey, secretKey, pinKey, baseURLKey string
 	switch provider {
 	case "igdb":
 		enabledKey, clientIDKey, secretKey = settings.IGDBEnabledKey, settings.IGDBClientIDKey, settings.IGDBClientSecretKey
@@ -169,6 +177,19 @@ func (service *Service) Configure(ctx context.Context, provider string, input Co
 		enabledKey, secretKey = settings.TMDBEnabledKey, settings.TMDBAccessTokenKey
 	case "tvdb":
 		enabledKey, secretKey, pinKey = settings.TVDBEnabledKey, settings.TVDBAPIKey, settings.TVDBPINKey
+	case "jellyfin":
+		enabledKey, secretKey, baseURLKey = settings.JellyfinEnabledKey, settings.JellyfinAPIKey, settings.JellyfinBaseURLKey
+		normalized, err := jellyfin.NormalizeBaseURL(input.BaseURL)
+		if err != nil {
+			return ProviderView{}, validationError(err.Error())
+		}
+		input.BaseURL = normalized
+		for index := range input.LibraryMappings {
+			input.LibraryMappings[index].LibraryID = strings.TrimSpace(input.LibraryMappings[index].LibraryID)
+		}
+		if err := validateMappings(input.LibraryMappings); err != nil {
+			return ProviderView{}, validationError(err.Error())
+		}
 	default:
 		return ProviderView{}, validationError("provider is not supported")
 	}
@@ -190,6 +211,17 @@ func (service *Service) Configure(ctx context.Context, provider string, input Co
 	if clientIDKey != "" {
 		encoded, _ := json.Marshal(input.ClientID)
 		if _, err := service.settings.Update(ctx, clientIDKey, encoded); err != nil {
+			return ProviderView{}, err
+		}
+	}
+	if baseURLKey != "" {
+		encoded, _ := json.Marshal(input.BaseURL)
+		if _, err := service.settings.Update(ctx, baseURLKey, encoded); err != nil {
+			return ProviderView{}, err
+		}
+		mappings, _ := json.Marshal(input.LibraryMappings)
+		encodedMappings, _ := json.Marshal(string(mappings))
+		if _, err := service.settings.Update(ctx, settings.JellyfinLibraryMappingsKey, encodedMappings); err != nil {
 			return ProviderView{}, err
 		}
 	}
@@ -250,6 +282,12 @@ func (service *Service) Test(ctx context.Context, providerName string) (TestStat
 		test = client.Test
 	case "tvdb":
 		client, err := service.TVDB(ctx)
+		if err != nil {
+			return service.recordError(ctx, providerName, err)
+		}
+		test = client.Test
+	case "jellyfin":
+		client, err := service.Jellyfin(ctx)
 		if err != nil {
 			return service.recordError(ctx, providerName, err)
 		}
@@ -345,6 +383,49 @@ func (service *Service) TVDB(ctx context.Context) (*tvdb.Client, error) {
 	return tvdb.NewClient(string(key), string(pin)), nil
 }
 
+func (service *Service) Jellyfin(ctx context.Context) (*jellyfin.Client, error) {
+	views, err := service.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	view := find(views, "jellyfin")
+	if !view.Enabled || !view.Configured {
+		return nil, errors.New("Jellyfin is not enabled and configured")
+	}
+	key, err := service.secrets.Read(ctx, settings.JellyfinAPIKey)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(key)
+	return jellyfin.NewClient(view.BaseURL, string(key))
+}
+
+func (service *Service) JellyfinMappings(ctx context.Context) ([]jellyfin.LibraryMapping, error) {
+	views, err := service.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return append([]jellyfin.LibraryMapping(nil), find(views, "jellyfin").LibraryMappings...), nil
+}
+
+func validateMappings(values []jellyfin.LibraryMapping) error {
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value.LibraryID = strings.TrimSpace(value.LibraryID)
+		if value.LibraryID == "" {
+			return errors.New("Jellyfin library mappings require a library ID")
+		}
+		if value.Domain != jellyfin.Movies && value.Domain != jellyfin.TVShows {
+			return errors.New("Jellyfin libraries can map only to Movies or TV Shows")
+		}
+		if _, duplicate := seen[value.LibraryID]; duplicate {
+			return errors.New("each Jellyfin library can be mapped only once")
+		}
+		seen[value.LibraryID] = struct{}{}
+	}
+	return nil
+}
+
 func find(values []ProviderView, provider string) ProviderView {
 	for _, value := range values {
 		if value.Provider == provider {
@@ -361,6 +442,15 @@ func decodeBool(value json.RawMessage) bool {
 func decodeString(value json.RawMessage) string {
 	var result string
 	_ = json.Unmarshal(value, &result)
+	return result
+}
+
+func decodeMappings(value json.RawMessage) []jellyfin.LibraryMapping {
+	encoded := decodeString(value)
+	result := []jellyfin.LibraryMapping{}
+	if json.Unmarshal([]byte(encoded), &result) != nil || validateMappings(result) != nil {
+		return []jellyfin.LibraryMapping{}
+	}
 	return result
 }
 

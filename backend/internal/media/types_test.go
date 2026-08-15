@@ -18,7 +18,11 @@ func TestValidatePersonalState(t *testing.T) {
 	if _, err := ValidatePersonalState(PersonalState{Status: StatusBacklog, Rating: &rating}); err == nil {
 		t.Fatal("expected backlog rating to be rejected")
 	}
-	low := int16(9)
+	zero := int16(0)
+	if _, err := ValidatePersonalState(PersonalState{Status: StatusCompleted, Rating: &zero}); err != nil {
+		t.Fatalf("expected canonical zero rating to be valid: %v", err)
+	}
+	low := int16(-1)
 	if _, err := ValidatePersonalState(PersonalState{Status: StatusCompleted, Rating: &low}); err == nil {
 		t.Fatal("expected invalid rating to be rejected")
 	}
@@ -64,5 +68,37 @@ func TestThemePreference(t *testing.T) {
 	}
 	if got := NormalizeTheme(""); got != "dark" {
 		t.Fatalf("NormalizeTheme(\"\") = %q, want dark", got)
+	}
+}
+
+func TestRatingScalePreferenceAndFormatting(t *testing.T) {
+	for _, scale := range []string{"0_10", "0_5", "minus5_plus5", "0_100"} {
+		if !ValidRatingScale(scale) {
+			t.Fatalf("ValidRatingScale(%q) = false", scale)
+		}
+	}
+	if ValidRatingScale("stars") {
+		t.Fatal("ValidRatingScale accepted an unsupported value")
+	}
+	if got := NormalizeRatingScale(""); got != "0_10" {
+		t.Fatalf("NormalizeRatingScale(\"\") = %q", got)
+	}
+	tests := []struct {
+		value int16
+		scale string
+		want  string
+	}{
+		{0, "0_10", "0.0"},
+		{51, "0_10", "5.1"},
+		{51, "0_5", "2.55"},
+		{50, "minus5_plus5", "+0.0"},
+		{49, "minus5_plus5", "-0.1"},
+		{100, "0_100", "100"},
+	}
+	for _, test := range tests {
+		got, err := FormatPersonalRating(test.value, test.scale)
+		if err != nil || got != test.want {
+			t.Errorf("FormatPersonalRating(%d, %q) = (%q, %v), want %q", test.value, test.scale, got, err, test.want)
+		}
 	}
 }

@@ -10,7 +10,9 @@ import {
   type MediaDomain,
 } from "@/api/client"
 import { Button } from "@/components/ui/button"
-import { formatRating, statusLabels } from "@/features/media/format"
+import { statusLabels } from "@/features/media/format"
+import { formatPersonalRating, ratingDistributionLabel } from "@/features/media/rating-scale"
+import { useRatingScale } from "@/features/media/rating-scale-context"
 import { cn } from "@/lib/utils"
 
 const scopes: [DashboardScope, string][] = [
@@ -111,6 +113,7 @@ export function DashboardPage() {
 }
 
 function DashboardContent({ value }: { value: DashboardResponse }) {
+  const ratingScale = useRatingScale()
   const visibleDomains = (Object.keys(value.totals) as MediaDomain[]).filter(
     (domain) => value.scope === "all" || value.scope === domain,
   )
@@ -124,7 +127,7 @@ function DashboardContent({ value }: { value: DashboardResponse }) {
         <div className="rounded-lg border bg-card p-5 shadow-xs">
           <p className="text-sm font-medium text-muted-foreground">Average personal rating</p>
           <p className="mt-2 text-3xl font-semibold tabular-nums">
-            {value.averageRating === undefined ? "—" : value.averageRating.toFixed(1)}
+            {value.averageRating === undefined ? "—" : formatPersonalRating(value.averageRating, ratingScale)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">Rated Library items only</p>
         </div>
@@ -141,7 +144,7 @@ function DashboardContent({ value }: { value: DashboardResponse }) {
         <>
           <MediaSection title="Currently In Progress" items={value.inProgress} empty="Nothing is currently In Progress." />
           <div className="grid gap-5 xl:grid-cols-2">
-            <DistributionCard title="Personal rating distribution" values={value.ratingDistribution} />
+            <DistributionCard title="Personal rating distribution" values={value.ratingDistribution} personalRating />
             <DistributionCard title="Status distribution" values={value.statusDistribution} />
           </div>
           <MediaSection title="Highest Rated" items={value.highestRated} empty="No rated Library items in this scope." showRating />
@@ -186,6 +189,7 @@ function TotalCard({ domain, totals }: { domain: MediaDomain; totals: { tracked:
 }
 
 function MediaSection({ title, items, empty, showRating = false }: { title: string; items: DashboardItem[]; empty: string; showRating?: boolean }) {
+  const ratingScale = useRatingScale()
   return (
     <section aria-label={title}>
       <div className="mb-4 flex items-end justify-between gap-3">
@@ -201,7 +205,7 @@ function MediaSection({ title, items, empty, showRating = false }: { title: stri
               </div>
               <p className="mt-2 line-clamp-2 text-sm font-medium leading-5">{item.title}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {showRating && item.rating ? <span className="inline-flex items-center gap-1"><Star aria-hidden="true" className="size-3" />{formatRating(item.rating)}</span> : statusLabels[item.status]}
+                {showRating && item.rating !== undefined ? <span className="inline-flex items-center gap-1"><Star aria-hidden="true" className="size-3" />{formatPersonalRating(item.rating, ratingScale)}</span> : statusLabels[item.status]}
               </p>
             </Link>
           ))}
@@ -211,7 +215,8 @@ function MediaSection({ title, items, empty, showRating = false }: { title: stri
   )
 }
 
-function DistributionCard({ title, values }: { title: string; values: { key: string; label: string; count: number }[] }) {
+function DistributionCard({ title, values, personalRating = false }: { title: string; values: { key: string; label: string; count: number }[]; personalRating?: boolean }) {
+  const ratingScale = useRatingScale()
   const maximum = Math.max(1, ...values.map((value) => value.count))
   return (
     <section className="rounded-lg border bg-card p-5 shadow-xs" aria-label={title}>
@@ -220,7 +225,7 @@ function DistributionCard({ title, values }: { title: string; values: { key: str
         <dl className="mt-5 space-y-3">
           {values.map((value) => (
             <div key={value.key} className="grid grid-cols-[6rem_minmax(0,1fr)_2rem] items-center gap-3">
-              <dt className="truncate text-xs text-muted-foreground">{value.label}</dt>
+              <dt className="truncate text-xs text-muted-foreground">{personalRating ? ratingDistributionLabel(value.key, ratingScale) : value.label}</dt>
               <dd className="h-2 overflow-hidden rounded-full bg-muted">
                 <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, value.count / maximum * 100)}%` }} />
               </dd>

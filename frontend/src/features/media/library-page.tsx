@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Modal } from "@/features/media/modal"
 import { RatingButton } from "@/features/media/rating-editor"
-import { formatRating, formatRuntime, sortItems, sortOptions, statusLabels, statuses } from "@/features/media/format"
+import { formatRuntime, sortItems, sortOptions, statusLabels, statuses } from "@/features/media/format"
+import { formatPersonalRating } from "@/features/media/rating-scale"
+import { useRatingScale } from "@/features/media/rating-scale-context"
 
 export function LibraryPage({ domain, title, backlog }: { domain: MediaDomain; title: string; backlog: boolean }) {
   const [params, setParams] = useSearchParams()
@@ -109,4 +111,4 @@ function MediaListRow({domain,item,backlog,saveScroll,saved}:{domain:MediaDomain
   return <article className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 border-b p-3 last:border-b-0 sm:grid-cols-[3rem_minmax(0,1fr)_7rem_7rem_auto]"><Link to={`/${domain}/${item.id}`} onClick={saveScroll} className="h-16 overflow-hidden rounded border bg-muted">{item.artworkUrl&&<img src={item.artworkUrl} alt="" className="size-full object-cover" />}</Link><div className="min-w-0"><Link to={`/${domain}/${item.id}`} onClick={saveScroll} className="truncate font-medium hover:underline">{item.title}</Link><p className="text-xs text-muted-foreground sm:hidden">{item.year}</p></div><span className="hidden text-sm text-muted-foreground sm:block">{item.year??"—"}</span><span className="hidden text-sm text-muted-foreground sm:block">{statusLabels[item.state.status]}</span>{backlog?<span />:<RatingButton domain={domain} id={item.id} title={item.title} state={item.state} saved={saved} />}</article>
 }
 
-export function RatingSummary({value,label}:{value?:number;label:string}){return <span className="inline-flex items-center gap-1 text-sm text-muted-foreground"><Star className="size-4" />{value?`${formatRating(value)} ${label}`:`No ${label} rating`}</span>}
+export function RatingSummary({value,label}:{value?:number;label:string}){const scale=useRatingScale();return <span className="inline-flex items-center gap-1 text-sm text-muted-foreground"><Star className="size-4" />{value!==undefined?`${formatPersonalRating(value,scale)} ${label}`:`No ${label} rating`}</span>}

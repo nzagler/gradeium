@@ -22,7 +22,7 @@ Every media type uses exactly these labels:
 Backlog has its own dedicated view and is excluded from the normal Library view.
 
 ## Rating model
-- User rating scale: 1.0–10.0.
+- Default user rating scale: 0.0–10.0.
 - Increment: 0.1.
 - 5.0 represents the midpoint; below 5.0 is negative, above 5.0 is positive.
 - Ratings are optional for all statuses except Backlog, where ratings are forbidden.

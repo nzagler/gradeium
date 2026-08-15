@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nzagler/gradeium/backend/internal/integrations/jellyfin"
 	"github.com/nzagler/gradeium/backend/internal/secrets"
 	"github.com/nzagler/gradeium/backend/internal/settings"
 )
@@ -29,6 +30,7 @@ func TestConfigureStoresSecretsAndReturnsOnlyRedactedState(t *testing.T) {
 		{provider: "igdb", input: ConfigurationInput{Enabled: true, ClientID: "fixture-client", Secret: "igdb-plaintext-secret"}, secret: settings.IGDBClientSecretKey},
 		{provider: "tmdb", input: ConfigurationInput{Enabled: true, Secret: "tmdb-plaintext-token"}, secret: settings.TMDBAccessTokenKey},
 		{provider: "tvdb", input: ConfigurationInput{Enabled: true, Secret: "tvdb-plaintext-key", PIN: "tvdb-plaintext-pin"}, secret: settings.TVDBAPIKey, pin: settings.TVDBPINKey},
+		{provider: "jellyfin", input: ConfigurationInput{Enabled: true, BaseURL: "http://jellyfin.local:8096/", Secret: "jellyfin-plaintext-key", LibraryMappings: []jellyfin.LibraryMapping{{LibraryID: "films", Domain: jellyfin.Movies}}}, secret: settings.JellyfinAPIKey},
 	}
 	for _, test := range tests {
 		view, err := service.Configure(ctx, test.provider, test.input)
@@ -54,7 +56,7 @@ func TestConfigureStoresSecretsAndReturnsOnlyRedactedState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal provider views: %v", err)
 	}
-	for _, plaintext := range []string{"igdb-plaintext-secret", "tmdb-plaintext-token", "tvdb-plaintext-key", "tvdb-plaintext-pin"} {
+	for _, plaintext := range []string{"igdb-plaintext-secret", "tmdb-plaintext-token", "tvdb-plaintext-key", "tvdb-plaintext-pin", "jellyfin-plaintext-key"} {
 		if strings.Contains(string(payload), plaintext) {
 			t.Fatalf("provider response contains secret plaintext %q", plaintext)
 		}

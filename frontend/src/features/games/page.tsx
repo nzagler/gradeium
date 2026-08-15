@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { AddPage } from "@/features/media/add-page"
 import { BackLink, DetailError, DetailHero, DetailLoading, InfoGrid, Section } from "@/features/media/detail-shared"
 import { useMediaDetail } from "@/features/media/use-media-detail"
-import { formatDate, formatRating } from "@/features/media/format"
+import { formatDate } from "@/features/media/format"
+import { formatPersonalRating } from "@/features/media/rating-scale"
+import { useRatingScale } from "@/features/media/rating-scale-context"
 import { LibraryPage } from "@/features/media/library-page"
 import { Modal } from "@/features/media/modal"
 
@@ -32,4 +34,4 @@ export function GameDetailPage() {
   </div>
 }
 
-function RelatedGames({detail}:{detail:MediaDetail}){return <div className="grid gap-3 sm:grid-cols-2">{detail.relatedReleases?.map((item)=><article key={`${item.providerId}-${item.relationship}`} className="flex gap-3 rounded-md border p-3"><div className="h-20 w-14 overflow-hidden rounded bg-muted">{item.coverUrl&&<img src={item.coverUrl} alt="" className="size-full object-cover" />}</div><div className="min-w-0"><p className="text-xs capitalize text-muted-foreground">{item.relationship}</p><h3 className="truncate text-sm font-medium">{item.title}</h3><p className="text-xs text-muted-foreground">{item.year}</p>{item.localId?<Link className="mt-2 inline-block text-xs underline" to={`/games/${item.localId}`}>{item.localStatus}{item.localRating?` · ${formatRating(item.localRating)}`:""}</Link>:<Link className="mt-2 inline-block text-xs underline" to={`/games/add?q=${encodeURIComponent(item.title)}`}>Not in Library</Link>}</div></article>)}</div>}
+function RelatedGames({detail}:{detail:MediaDetail}){const scale=useRatingScale();return <div className="grid gap-3 sm:grid-cols-2">{detail.relatedReleases?.map((item)=><article key={`${item.providerId}-${item.relationship}`} className="flex gap-3 rounded-md border p-3"><div className="h-20 w-14 overflow-hidden rounded bg-muted">{item.coverUrl&&<img src={item.coverUrl} alt="" className="size-full object-cover" />}</div><div className="min-w-0"><p className="text-xs capitalize text-muted-foreground">{item.relationship}</p><h3 className="truncate text-sm font-medium">{item.title}</h3><p className="text-xs text-muted-foreground">{item.year}</p>{item.localId?<Link className="mt-2 inline-block text-xs underline" to={`/games/${item.localId}`}>{item.localStatus}{item.localRating!==undefined?` · ${formatPersonalRating(item.localRating,scale)}`:""}</Link>:<Link className="mt-2 inline-block text-xs underline" to={`/games/add?q=${encodeURIComponent(item.title)}`}>Not in Library</Link>}</div></article>)}</div>}

@@ -133,7 +133,7 @@ func Validate(document Document) error {
 		if err := optionalText("email", user.Email, 500); err != nil {
 			return err
 		}
-		if !validSort(user.Preferences.DefaultLibrarySort) || (user.Preferences.PreferredView != "grid" && user.Preferences.PreferredView != "list") || !media.ValidTheme(media.NormalizeTheme(user.Preferences.Theme)) {
+		if !validSort(user.Preferences.DefaultLibrarySort) || (user.Preferences.PreferredView != "grid" && user.Preferences.PreferredView != "list") || !media.ValidTheme(media.NormalizeTheme(user.Preferences.Theme)) || !media.ValidRatingScale(media.NormalizeRatingScale(user.Preferences.RatingScale)) {
 			return errors.New("backup contains invalid Library preferences")
 		}
 	}

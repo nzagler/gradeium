@@ -44,6 +44,7 @@ type Preferences struct {
 	DefaultLibrarySort string `json:"defaultLibrarySort"`
 	PreferredView      string `json:"preferredView"`
 	Theme              string `json:"theme"`
+	RatingScale        string `json:"ratingScale,omitempty"`
 }
 
 type Setting struct {

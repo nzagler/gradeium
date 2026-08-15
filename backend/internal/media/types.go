@@ -42,8 +42,8 @@ func ValidatePersonalState(state PersonalState) (PersonalState, error) {
 		return PersonalState{}, err
 	}
 	state.Status = status
-	if state.Rating != nil && (*state.Rating < 10 || *state.Rating > 100) {
-		return PersonalState{}, errors.New("rating must be between 1.0 and 10.0 in 0.1 increments")
+	if state.Rating != nil && (*state.Rating < 0 || *state.Rating > 100) {
+		return PersonalState{}, errors.New("rating must use Gradeium's canonical 0 to 100 range")
 	}
 	if state.RatingReason != nil {
 		reason := strings.TrimSpace(*state.RatingReason)

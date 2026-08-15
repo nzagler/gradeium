@@ -20,6 +20,7 @@ import (
 	"github.com/nzagler/gradeium/backend/internal/games"
 	"github.com/nzagler/gradeium/backend/internal/httpserver"
 	"github.com/nzagler/gradeium/backend/internal/integrations"
+	"github.com/nzagler/gradeium/backend/internal/jellyfinsync"
 	"github.com/nzagler/gradeium/backend/internal/media"
 	"github.com/nzagler/gradeium/backend/internal/movies"
 	"github.com/nzagler/gradeium/backend/internal/secrets"
@@ -86,7 +87,19 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	preferenceService := media.NewPreferencesService(pool)
 	backupService := backups.NewService(backups.NewPostgresStore(pool), cfg.BackupsDir, buildinfo.Version)
 	dashboardService := dashboard.NewService(pool)
-	apiHandler := httpserver.NewAPIWithPhase5(
+	jellyfinSyncService := jellyfinsync.NewService(
+		movieService,
+		tvService,
+		func(ctx context.Context, userID string, providerID int64, status media.Status) error {
+			_, err := movieService.Add(ctx, userID, providerID, status)
+			return err
+		},
+		func(ctx context.Context, userID string, providerID int64, status media.Status) error {
+			_, err := tvService.Add(ctx, userID, providerID, status)
+			return err
+		},
+	)
+	apiHandler := httpserver.NewAPIWithPhase11(
 		logger,
 		setupService,
 		settingsService,
@@ -101,6 +114,7 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 		preferenceService,
 		backupService,
 		dashboardService,
+		jellyfinSyncService,
 	)
 
 	schedulerContext, cancelScheduler := context.WithCancel(ctx)
