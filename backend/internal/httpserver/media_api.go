@@ -498,6 +498,10 @@ func (handlers *apiHandlers) addTV(w http.ResponseWriter, r *http.Request) {
 }
 func (handlers *apiHandlers) tvDetail(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if id == "all" {
+		handlers.tvBulkRefreshStatus(w, r)
+		return
+	}
 	if handlers.badID(w, id) {
 		return
 	}
@@ -537,12 +541,28 @@ func (handlers *apiHandlers) selectTVArtwork(w http.ResponseWriter, r *http.Requ
 }
 func (handlers *apiHandlers) refreshTV(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if id == "all" {
+		handlers.startTVBulkRefresh(w, r)
+		return
+	}
 	if handlers.badID(w, id) {
 		return
 	}
 	ctx, cancel := mediaContext(r)
 	defer cancel()
-	value, err := handlers.tv.Refresh(ctx, handlers.identity(r), id)
+	providerIDValue := strings.TrimSpace(r.URL.Query().Get("providerId"))
+	var value any
+	var err error
+	if providerIDValue != "" {
+		providerID, parseErr := strconv.ParseInt(providerIDValue, 10, 64)
+		if parseErr != nil || providerID <= 0 {
+			writeAPIError(w, http.StatusBadRequest, "validation_error", "Choose a valid TVDB show.")
+			return
+		}
+		value, err = handlers.tv.Rematch(ctx, handlers.identity(r), id, providerID)
+	} else {
+		value, err = handlers.tv.Refresh(ctx, handlers.identity(r), id)
+	}
 	if err != nil {
 		handlers.mediaError(w, r, err)
 		return
